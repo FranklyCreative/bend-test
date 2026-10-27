@@ -125,13 +125,15 @@
         </button>
         <button id="tierDust" class="tier-btn dust tier difficulty" data-tier="dust">
           <span class="tier-dot"></span>
-          <span>Med: Dust-Jammed</span>
+          <span>Med: Dust-Jammed</span><span id="lockDust" class="tier-lock" aria-hidden="true">🔒</span>
         </button>
         <button id="tierTitanium" class="tier-btn titanium tier difficulty" data-tier="titanium">
           <span class="tier-dot"></span>
-          <span>Hard: Samsung Fold 8</span>
+          <span>Hard: Samsung Fold 8</span><span id="lockTitanium" class="tier-lock" aria-hidden="true">🔒</span>
         </button>
       </div>
+
+      <div id="progressStatus" class="progress-status" role="status" aria-live="polite">Level 1 / 3 · Best: — · Win to unlock Medium</div>
 
       <!-- Action Buttons -->
       <div class="footer-actions">
@@ -156,6 +158,8 @@
         <div class="report-verdict-banner">
           <span id="report-verdict" class="verdict-text">Display Failure — Frame Connected</span>
         </div>
+
+        <p id="report-progress" class="report-progress" aria-live="polite"></p>
 
         <!-- Run Performance Metrics Grid -->
         <div class="report-metrics-grid">
@@ -211,6 +215,7 @@
 
         <!-- Modal Actions (Download PNG, Share on X, Test Again) -->
         <div class="report-actions">
+          <button id="btnNextLevel" class="btn-arcade" style="display:none">Continue to next level</button>
           <button id="btnDownloadCard" class="btn-arcade btn-arcade-secondary btn-download-png">
             <span>💾</span>
             <span>Download PNG Card</span>

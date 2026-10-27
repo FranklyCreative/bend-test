@@ -85,6 +85,20 @@
       runDuration: 25.0
     });
 
+    // Restrict progress to genuine, unmodified rounds. The visual inspection
+    // ?damage=... option is a preview and cannot unlock a level or save a score.
+    let previewMode = false;
+    try {
+      const query = new URLSearchParams(window.location.search || '');
+      const damage = query.get('damage');
+      previewMode = damage !== null && Number.isFinite(Number(damage));
+    } catch (_) {}
+    let progressStorage = null;
+    try { progressStorage = window.localStorage; } catch (_) {}
+    const progression = ui.createProgression(progressStorage);
+    let lastProgressText = '';
+    let nextUnlockedTier = null;
+
     const renderer = new CanvasRendererClass(canvas, {
       enableHiDPI: true,
       enableShake: true,
@@ -126,17 +140,36 @@
     }
     updateMuteButtonUI();
 
-    // Update Tier Buttons UI & Header Device Title
+    // Update tier locks, selected device, and the selected tier's local best.
     const brandDeviceName = document.getElementById('brandDeviceName');
+    const progressStatus = document.getElementById('progressStatus');
+    const tierOrder = ['standard', 'dust', 'titanium'];
+    const tierNames = ['Easy', 'Medium', 'Hard'];
     function updateTierButtonsUI(activeTierId) {
+      const activeIndex = Math.max(0, tierOrder.indexOf(activeTierId));
       Object.keys(tierButtons).forEach(tierId => {
         const btn = tierButtons[tierId];
-        if (btn) {
-          btn.classList.toggle('active', tierId === activeTierId);
+        if (!btn) return;
+        const unlocked = progression.isUnlocked(tierId);
+        btn.disabled = !unlocked;
+        btn.classList.toggle('active', tierId === activeTierId);
+        if (typeof btn.setAttribute === 'function') {
+          btn.setAttribute('aria-pressed', tierId === activeTierId ? 'true' : 'false');
+          btn.setAttribute('aria-label', tierNames[tierOrder.indexOf(tierId)] + (unlocked ? ' level' : ' level, locked'));
         }
+        btn.title = unlocked ? 'Select ' + tierNames[tierOrder.indexOf(tierId)] : 'Win the previous level to unlock';
+        const lock = btn.querySelector('.tier-lock');
+        if (lock) lock.style.display = unlocked ? 'none' : '';
       });
-      if (brandDeviceName) {
-        brandDeviceName.textContent = (activeTierId === 'titanium') ? 'Samsung Fold 8' : 'iPhone Duo';
+      if (brandDeviceName) brandDeviceName.textContent = (activeTierId === 'titanium') ? 'Samsung Fold 8' : 'iPhone Duo';
+      if (progressStatus) {
+        const best = progression.getBest(activeTierId);
+        const bestText = best === null ? '—' : best.toFixed(2) + 's';
+        const next = progression.getUnlockedCount();
+        const goal = next < 3 ? ' · Win ' + tierNames[next - 1] + ' to unlock ' + tierNames[next]
+          : (progression.getBest('titanium') !== null ? ' · All levels cleared!' : ' · Beat Hard to complete the campaign');
+        const saveNote = previewMode ? ' · Preview: no scores' : (!progression.isPersistent() ? ' · Session only' : '');
+        progressStatus.textContent = 'Level ' + (activeIndex + 1) + ' / 3 · Best: ' + bestText + goal + saveNote;
       }
     }
     updateTierButtonsUI(engine.currentTier.id);
@@ -188,16 +221,36 @@
       }
 
       if (newState === EngineClass.STATES.SNAP_CELEBRATION) {
+        const result = previewMode ? null : progression.recordWin(engine.currentTier.id, engine.snapTime);
+        nextUnlockedTier = result ? result.nextTier : null;
+        if (result) {
+          const best = progression.getBest(engine.currentTier.id);
+          const nextName = result.nextTier ? tierNames[tierOrder.indexOf(result.nextTier)] : '';
+          lastProgressText = (result.newBest ? 'New personal best: ' : 'Personal best: ') + best.toFixed(2) + 's' +
+            (result.unlockedNext ? ' · ' + nextName + ' unlocked!' : (engine.currentTier.id === 'titanium' ? ' · Campaign complete!' : '')) + (result.saved ? '' : ' · Saved for this session only');
+          updateTierButtonsUI(engine.currentTier.id);
+        } else lastProgressText = previewMode ? 'Preview mode — scores and unlocks are not saved.' : '';
         if (ui && ui.Captions) {
           ui.Captions.trigger('STAGE_5', 3);
         }
       } else if (newState === EngineClass.STATES.SURVIVAL_FAIL) {
+        nextUnlockedTier = null;
+        lastProgressText = 'No new unlock this round. Try again!';
         if (ui && ui.Captions) {
           ui.Captions.display(`The ${engine.currentTier.deviceModel || 'iPhone Duo'} survives this bend test.`, 3);
         }
       } else if (newState === EngineClass.STATES.REPORT_CARD) {
         if (ui && typeof ui.showReportCard === 'function') {
           ui.showReportCard(engine.getReportCardData(), {
+            progressText: lastProgressText,
+            nextLevelLabel: nextUnlockedTier ? 'Continue to ' + tierNames[tierOrder.indexOf(nextUnlockedTier)] : '',
+            onNextLevel: nextUnlockedTier ? () => {
+              const next = nextUnlockedTier;
+              nextUnlockedTier = null;
+              engine.setTier(next);
+              updateTierButtonsUI(next);
+              updateOrientationButtonUI(engine.orientation);
+            } : null,
             onRetry: () => engine.resetGame()
           });
         }
@@ -335,7 +388,10 @@
       if (btn) {
         btn.addEventListener('click', (e) => {
           e.preventDefault();
+          if (!progression.isUnlocked(tierId)) return;
           unlockAudio();
+          previewMode = false;
+          lastProgressText = '';
           engine.setTier(tierId);
           updateTierButtonsUI(tierId);
           updateOrientationButtonUI(engine.orientation);
@@ -525,6 +581,7 @@
       audio,
       ui,
       isLoopRunning: () => true,
+      progression,
       initGame
     };
     window.__BEND_TEST_CONTROLLER__ = controller;
@@ -539,7 +596,7 @@
       const qTier = params.get('tier');
       const qDamage = params.get('damage');
       const qFlip = params.get('flip');
-      if (qTier) {
+      if (qTier && progression.isUnlocked(qTier.toLowerCase())) {
         engine.setTier(qTier);
         updateTierButtonsUI(engine.currentTier.id);
       }

@@ -472,6 +472,13 @@ html, body {
   box-shadow: 0 0 6px var(--mat-highlight);
 }
 
+/* Local progression is legible even when the tier control is disabled. */
+.tier-btn:disabled { opacity: 0.58; cursor: not-allowed; border-color: rgba(255,255,255,0.12); color: #abb5b7; background: rgba(0,0,0,0.36); box-shadow: none; }
+.tier-btn .tier-lock { color: #d4b98b; font-size: 10px; }
+.progress-status { color: #d4e3db; font-size: 11px; line-height: 1.3; text-align: center; }
+.report-progress { color: #a8e3c9; margin: 8px 0 0; font-size: 13px; text-align: center; min-height: 1.3em; }
+@media (max-width: 768px) { .progress-status { font-size: 10px; line-height: 1.1; } }
+
 /* Master Primary Action Buttons */
 .footer-actions {
   display: flex;

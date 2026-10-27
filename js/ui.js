@@ -835,6 +835,7 @@
 
     setText('report-grade', grade);
     setText('report-verdict', verdict);
+    setText('report-progress', options.progressText || '');
     setText('report-snap-time', metrics.snapTime ? `${metrics.snapTime}s` : `Survived (${Number(metrics.runDuration || 15).toFixed(1)}s)`);
     setText('report-bend-angle', `${Math.round(metrics.maxBendAngle || 0)}°`);
     setText('report-peak-cps', `${metrics.peakCps || '0.0'} CPS`);
@@ -882,6 +883,14 @@
       shareBtn.onclick = () => openTwitterShare(metrics);
     }
 
+    const nextLevelBtn = document.getElementById('btnNextLevel');
+    if (nextLevelBtn) {
+      const hasNext = typeof options.onNextLevel === 'function';
+      nextLevelBtn.style.display = hasNext ? '' : 'none';
+      nextLevelBtn.textContent = options.nextLevelLabel || 'Continue to next level';
+      nextLevelBtn.onclick = hasNext ? () => { hideReportCard(); options.onNextLevel(); } : null;
+    }
+
     // Wire Retry / Test Again button
     const retryBtn = document.getElementById('btn-retry') ||
                      document.getElementById('btn-report-retry') ||
@@ -917,6 +926,62 @@
     }
   }
 
+  // Local progress is deliberately separate from game physics and report sharing.
+  // Storage may be blocked (private mode, security policy, quota); keep the
+  // current session playable in memory without deleting any existing data.
+  const PROGRESS_KEY = 'bend-test.progress.v1';
+  const PROGRESS_TIERS = ['standard', 'dust', 'titanium'];
+  function createProgression(storage) {
+    const state = { unlocked: 1, best: {} };
+    let canSave = true;
+    try {
+      if (storage) {
+        const raw = storage.getItem(PROGRESS_KEY);
+        if (raw !== null) {
+          const saved = JSON.parse(raw);
+          if (!saved || saved.version !== 1 || !Number.isInteger(saved.unlocked) ||
+              saved.unlocked < 1 || saved.unlocked > 3 || !saved.best || typeof saved.best !== 'object') {
+            canSave = false; // Preserve unrecognised records instead of overwriting them.
+          } else {
+            state.unlocked = saved.unlocked;
+            for (const tier of PROGRESS_TIERS) {
+              const time = saved.best[tier];
+              if (typeof time === 'number' && Number.isFinite(time) && time > 0 && time <= 3600) state.best[tier] = time;
+            }
+          }
+        }
+      } else canSave = false;
+    } catch (_) { canSave = false; }
+    const isUnlocked = tier => {
+      const index = PROGRESS_TIERS.indexOf(tier);
+      return index >= 0 && index < state.unlocked;
+    };
+    function recordWin(tier, seconds) {
+      const index = PROGRESS_TIERS.indexOf(tier);
+      const time = Number(seconds);
+      if (index < 0 || !isUnlocked(tier) || !Number.isFinite(time) || time <= 0 || time > 3600) return null;
+      const previous = state.best[tier];
+      const newBest = previous === undefined || time < previous;
+      if (newBest) state.best[tier] = time;
+      const unlockedNext = index + 1 === state.unlocked && state.unlocked < PROGRESS_TIERS.length;
+      if (unlockedNext) state.unlocked++;
+      let saved = false;
+      if (canSave && storage) {
+        try {
+          storage.setItem(PROGRESS_KEY, JSON.stringify({version: 1, unlocked: state.unlocked, best: state.best}));
+          saved = true;
+        } catch (_) { canSave = false; }
+      }
+      return {newBest, unlockedNext, nextTier: unlockedNext ? PROGRESS_TIERS[index + 1] : null, saved};
+    }
+    return {
+      isUnlocked, recordWin,
+      getBest: tier => state.best[tier] === undefined ? null : state.best[tier],
+      getUnlockedCount: () => state.unlocked,
+      isPersistent: () => canSave
+    };
+  }
+
   // =========================================================================
   // 9. PUBLIC API EXPORT & UMD NAMESPACE MAPPING
   // =========================================================================
@@ -924,6 +989,7 @@
   const api = {
     // Quip database
     QUIPS,
+    createProgression,
 
     // Subtitle & Caption Engine
     Captions: captionEngine,

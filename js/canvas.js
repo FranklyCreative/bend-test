@@ -1486,8 +1486,16 @@
 
       ctx.fillStyle = bodyGrad;
       ctx.beginPath();
-      // Samsung Fold 8 has sharp squared-off corners [1, 4, 4, 1]; iPhone Duo has rounded [2, 10, 10, 2]
-      ctx.roundRect(0, -halfH, L, H, isSamsungFold ? [1, 4, 4, 1] : [2, 10, 10, 2]);
+      // The hinge stays square while the outer end rolls into the backplane.
+      // Separate radii keep the Fold's squared profile distinct from the Duo.
+      const endRadius = isSamsungFold ? 5 : 9;
+      ctx.moveTo(0, -halfH + 0.8);
+      ctx.lineTo(L - endRadius, -halfH);
+      ctx.quadraticCurveTo(L, -halfH, L, -halfH + endRadius);
+      ctx.lineTo(L, halfH - endRadius);
+      ctx.quadraticCurveTo(L, halfH, L - endRadius, halfH);
+      ctx.lineTo(0, halfH - 0.8);
+      ctx.closePath();
       ctx.fill();
 
       if (isSamsungFold) {
@@ -1829,9 +1837,9 @@
         // Top of index knuckle wrapping around the outer-left tip of the phone
         ctx.lineTo(lx + 4, tipY - 6 + palmDrop * 0.3);
         // Inner edge of index finger dropping behind the left tip of the phone
-        ctx.bezierCurveTo(lx + 8, tipY + 32, lx + 14, tipY + 82, -315 + palmInward * 0.4, Math.max(128, tipY + 75 + palmDrop * 0.5));
+        ctx.bezierCurveTo(lx + 13, tipY + 24, lx + 30, tipY + 67, -302 + palmInward * 0.4, Math.max(111, tipY + 65 + palmDrop * 0.5));
         // Purlicue / thumb-index webbing hollow (leaves open window under left wing!)
-        ctx.bezierCurveTo(-295 + palmInward * 0.4, Math.max(138, tipY + 82 + palmDrop * 0.5), -252 + ipFlex * 0.4, 136 - squeezeLift * 0.5, -222 + ipFlex * 0.5, 118 - squeezeLift * 0.7);
+        ctx.bezierCurveTo(-279 + palmInward * 0.4, Math.max(117, tipY + 71 + palmDrop * 0.5), -248 + ipFlex * 0.4, 121 - squeezeLift * 0.5, -220 + ipFlex * 0.5, 107 - squeezeLift * 0.7);
         // Upper-left contour of Left Thumb angling ~55° up-right to meet underside of Left Wing
         ctx.bezierCurveTo(-185 + ipFlex * 0.4, 90 - squeezeLift * 0.8, -137 + ipFlex * 0.25, yOuter + 34, -92 - padSpread * 0.3, yOuter + 4);
         // Distal Left Thumb Pad flush along the tilted underside of Left Wing (u = 86 -> u = 10)
@@ -1957,9 +1965,9 @@
         // Top-right knuckle blending behind the right tip of the phone
         ctx.lineTo(rx - 4, tipY - 6 + palmDrop * 0.3);
         // Inner contour of right hand dropping down behind right wing tip
-        ctx.bezierCurveTo(rx - 2, tipY + 32, rx + 6, tipY + 80, 328 - palmInward * 0.4, Math.max(118, tipY + 68 + palmDrop * 0.5));
+        ctx.bezierCurveTo(rx - 13, tipY + 24, rx - 30, tipY + 66, 302 - palmInward * 0.4, Math.max(109, tipY + 63 + palmDrop * 0.5));
         // Webbing hollow between right index finger and right thumb (leaves window under speaker holes!)
-        ctx.bezierCurveTo(302 - palmInward * 0.4, Math.max(132, tipY + 78 + palmDrop * 0.5), 250 - ipFlex * 0.4, 128 - squeezeLift * 0.5, 210 - ipFlex * 0.5, 108 - squeezeLift * 0.7);
+        ctx.bezierCurveTo(279 - palmInward * 0.4, Math.max(115, tipY + 69 + palmDrop * 0.5), 246 - ipFlex * 0.4, 118 - squeezeLift * 0.5, 212 - ipFlex * 0.5, 103 - squeezeLift * 0.7);
         // Upper-right contour of Right Thumb angling ~55° up-left to meet underside of Right Wing
         ctx.bezierCurveTo(181 - ipFlex * 0.4, 82 - squeezeLift * 0.8, 139 - ipFlex * 0.25, yOuter + 31, 92 + padSpread * 0.3, yOuter + 4);
         // Broad Right Thumb Pad flush along the tilted underside of Right Wing (u = 86 -> u = 10)
@@ -2190,62 +2198,88 @@
     _renderHudOverlay(ctx, snapshot) {
       if (!this.options.showHud || !snapshot) return;
 
+      // Draw at CSS-pixel scale rather than scene scale: text remains readable
+      // when the handset and its hands are fitted into a narrow phone viewport.
+      const hudWidth = 290;
+      const hudScale = Math.min(1, Math.max(0.5, (this.width - 16) / hudWidth),
+        Math.max(0.72, this.height / 260));
       ctx.save();
-
-      // Unified Top-Center Telemetry & Strain Pill Badge (y = -356..-262)
-      // Placed at top-center so it NEVER overlaps the bottom subtitle pill!
-      const pillW = 290;
-      const pillH = 110;
-      ctx.fillStyle = 'rgba(12, 16, 22, 0.85)';
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+      ctx.translate(this.width / 2, 8);
+      ctx.scale(hudScale, hudScale);
+      ctx.fillStyle = 'rgba(12, 16, 22, 0.91)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.20)';
       ctx.lineWidth = 1.2;
       ctx.beginPath();
-      ctx.roundRect(-pillW / 2, -356, pillW, pillH, 14);
+      ctx.roundRect(-hudWidth / 2, 0, hudWidth, 128, 14);
       ctx.fill();
       ctx.stroke();
 
       ctx.textAlign = 'center';
       ctx.font = '900 23px "SF Pro Display", sans-serif';
-      const angle = (snapshot.bendAngleDeg || 0).toFixed(1);
-      ctx.fillStyle = snapshot.damagePct >= 75 ? '#ff3b30' : (snapshot.damagePct >= 25 ? '#ff9500' : '#ffffff');
-      ctx.fillText(`${angle}° BEND`, 0, -326);
+      const angle = (Number(snapshot.bendAngleDeg) || 0).toFixed(1);
+      ctx.fillStyle = snapshot.damagePct >= 75 ? '#ffad78' : (snapshot.damagePct >= 25 ? '#ffd171' : '#ffffff');
+      ctx.fillText(`${angle}° BEND`, 0, 24);
       ctx.font = 'bold 10px "SF Mono", monospace';
       ctx.fillStyle = '#f1c979';
       const deviceBadge = this._currentTierId === 'titanium' ? 'HARD • SAMSUNG GALAXY Z FOLD 8'
         : this._currentTierId === 'dust' ? 'MEDIUM • DUST-JAMMED IPHONE DUO' : 'EASY • IPHONE DUO';
-      ctx.fillText(deviceBadge, 0, -307);
+      ctx.fillText(deviceBadge, 0, 43);
 
-      const fillRatio = Math.max(0, Math.min(1.0, (snapshot.currentForce || 0) / (snapshot.maxForce || 100)));
-      const cps = (snapshot.cps || 0).toFixed(1);
+      const maxForce = Number(snapshot.maxForce) > 0 ? Number(snapshot.maxForce) : 100;
+      const currentForce = Math.max(0, Number(snapshot.currentForce) || 0);
+      const fillRatio = Math.max(0, Math.min(1, currentForce / maxForce));
+      const hasYield = Number.isFinite(snapshot.yieldThreshold);
+      const yieldRatio = hasYield ? Math.max(0, Math.min(1, snapshot.yieldThreshold / maxForce)) : null;
+      const aboveYield = hasYield && (typeof snapshot.forceAboveYield === 'boolean'
+        ? snapshot.forceAboveYield : currentForce > snapshot.yieldThreshold);
+      const cps = (Number(snapshot.cps) || 0).toFixed(1);
       ctx.font = 'bold 11px "SF Mono", monospace';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.84)';
-      ctx.fillText(`${cps} CPS  •  STRAIN: ${Math.round(fillRatio * 100)}%`, 0, -290);
+      ctx.fillStyle = '#e7edf1';
+      ctx.fillText(`${cps} CPS  •  FORCE ${Math.round(fillRatio * 100)}%`, 0, 61);
 
-      // Integrated Strain Meter Bar inside the Top-Center Pill
-      const barW = 196;
+      const barW = 220;
       const barH = 10;
       const barX = -barW / 2;
-      const barY = -276;
-
-      ctx.fillStyle = 'rgba(24, 32, 42, 0.95)';
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-      ctx.lineWidth = 1.2;
+      const barY = 70;
+      ctx.fillStyle = 'rgba(34, 44, 54, 0.98)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.30)';
+      ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.roundRect(barX, barY, barW, barH, 5);
       ctx.fill();
       ctx.stroke();
-
-      if (fillRatio > 0.01) {
-        const strainGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
-        strainGrad.addColorStop(0, '#34c759');
-        strainGrad.addColorStop(0.6, '#ffcc00');
-        strainGrad.addColorStop(1, '#ff3b30');
-        ctx.fillStyle = strainGrad;
+      if (fillRatio > 0) {
+        ctx.fillStyle = aboveYield ? '#65dca4' : '#e3ae49';
         ctx.beginPath();
-        ctx.roundRect(barX + 2, barY + 2, (barW - 4) * fillRatio, barH - 4, 3);
+        ctx.roundRect(barX + 2, barY + 2, Math.max(0, (barW - 4) * fillRatio), barH - 4, 3);
         ctx.fill();
       }
+      if (hasYield) {
+        const markerX = barX + 2 + (barW - 4) * yieldRatio;
+        // White tick marks the force needed to begin yielding, not damage itself.
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(markerX, barY - 2);
+        ctx.lineTo(markerX, barY + barH + 2);
+        ctx.stroke();
+        ctx.fillStyle = aboveYield ? '#9ef2c1' : '#fff2ce';
+        ctx.font = 'bold 10px "SF Mono", monospace';
+        ctx.fillText(snapshot.orientation === 'FRONT_BEND' ? 'HINGE RESISTS — FLIP PHONE'
+          : (aboveYield ? 'DAMAGE BUILDING' : 'PUSH PAST THE WHITE LINE'), 0, 96);
+      } else {
+        // Older engine snapshots remain playable without inventing a threshold.
+        ctx.fillStyle = '#cbd5de';
+        ctx.font = 'bold 10px "SF Mono", monospace';
+        ctx.fillText('FORCE', 0, 96);
+      }
 
+      const comboActive = snapshot.comboActive === true && Number(snapshot.comboMultiplier) > 1;
+      ctx.font = 'bold 10px "SF Mono", monospace';
+      ctx.fillStyle = comboActive ? '#88eac1' : '#cbd5de';
+      ctx.fillText(comboActive
+        ? `ALTERNATING HANDS ×${Number(snapshot.comboMultiplier).toFixed(2)}`
+        : 'ALTERNATE HANDS FOR BONUS', 0, 115);
       ctx.restore();
     }
 
@@ -2361,11 +2395,11 @@
         this.particlePool.draw(ctx);
       }
 
-      // --- PASS 8: FLOATING DAMAGE LABELS & HUD OVERLAYS ---
+      // Floating damage text stays in the scene; the HUD uses CSS pixels so
+      // it remains legible even when the whole scene is scaled down on mobile.
       this._updateAndDrawFloatingLabels(ctx, dt);
-      this._renderHudOverlay(ctx, snapshot);
-
       ctx.restore();
+      this._renderHudOverlay(ctx, snapshot);
     }
 
     // =======================================================================

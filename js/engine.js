@@ -779,8 +779,7 @@
       // 7. Dynamic Yield Threshold & Super-Linear Damage Integration
       // Dynamic yield threshold drops as damage accumulates:
       // F_yield(D) = F_yield_0 * (1.0 - 0.5 * (D / 100))
-      const assistYieldMult = this.options.interactiveAssist ? 0.72 : 1.0;
-      const dynamicYield = this.currentTier.yieldThreshold * assistYieldMult * (1.0 - 0.5 * damageRatio);
+      const dynamicYield = this.getYieldThreshold();
       const excessForce = Math.max(0.0, this.force - dynamicYield);
 
       // Damage only accumulates if force exceeds yield threshold
@@ -968,7 +967,21 @@
      * Returns a pristine snapshot conforming to PROJECT.md GameRenderSnapshot
      * and explorer_survey_1 GameRenderSnapshot.
      */
+    /** Current force threshold for permanent damage, shared by physics and HUD. */
+    getYieldThreshold() {
+      const damageRatio = Math.max(0, Math.min(1, this.damage / 100));
+      const assistYieldMult = this.options.interactiveAssist ? 0.72 : 1.0;
+      return this.currentTier.yieldThreshold * assistYieldMult * (1.0 - 0.5 * damageRatio);
+    }
+
     getRenderSnapshot() {
+      const yieldThreshold = this.getYieldThreshold();
+      const age = this.lastTapTime >= 0 ? this._getNow() - this.lastTapTime : Infinity;
+      // A combo indicates a recent bonus-bearing alternating tap, not a stale
+      // multiplier retained after the player stops or the round has ended.
+      const comboActive = this.state === STATES.ACTIVE_MASHING &&
+        this.currentComboMultiplier > 1 && age >= 0 && age < 0.40;
+      const comboRemainingSec = comboActive ? Math.max(0, 0.40 - age) : 0;
       return {
         // Core state machine
         state: this.state,
@@ -995,6 +1008,8 @@
         currentForce: this.force,
         force: this.force,                              // alias
         maxForce: this.maxForce,
+        yieldThreshold: yieldThreshold,
+        forceAboveYield: this.state === STATES.ACTIVE_MASHING && this.force > yieldThreshold,
         peakForce: this.peakForce,
         cps: this.cpsSmoothed,
         peakCps: this.peakCps,
@@ -1022,6 +1037,8 @@
         // Thematic lore
         currentQuip: this.currentQuip,
         comboMultiplier: this.currentComboMultiplier,
+        comboActive: comboActive,
+        comboRemainingSec: comboRemainingSec,
         survived: this.survived,
         snapTime: this.snapTime
       };
