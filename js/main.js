@@ -52,16 +52,21 @@
     const damageFill = hudDamageBar ? hudDamageBar.querySelector('.damage-fill') : null;
 
     // Control Buttons
+    const btnQuote = document.getElementById('btnQuote');
+    const btnLeaderboard = document.getElementById('btnLeaderboard');
     const btnFlip = document.getElementById('btnFlip');
     const btnMute = document.getElementById('btnMute');
     const btnStart = document.getElementById('btnStart');
     const btnReset = document.getElementById('btnReset');
+    const captionPill = document.getElementById('caption-pill');
 
-    // Tier Selector Buttons
+    // Tier Selector Buttons (5 Foldable Smartphone Levels)
     const tierButtons = {
       standard: document.getElementById('tierStandard'),
       dust: document.getElementById('tierDust'),
-      titanium: document.getElementById('tierTitanium')
+      titanium: document.getElementById('tierTitanium'),
+      pixel: document.getElementById('tierPixel'),
+      trifold: document.getElementById('tierTrifold')
     };
 
     // Mobile Touch Zones
@@ -95,9 +100,16 @@
     } catch (_) {}
     let progressStorage = null;
     try { progressStorage = window.localStorage; } catch (_) {}
-    const progression = ui.createProgression(progressStorage);
+    const tierOrder = ['standard', 'dust', 'titanium', 'pixel', 'trifold'];
+    const tierNames = ['Easy: iPhone Duo', 'Med: Dust-Jammed', 'Hard: Samsung Fold 8', 'Expert: Pixel 10 Fold', 'Boss: Mate XT Tri-Fold'];
+    const progression = ui.createProgression(progressStorage, tierOrder);
+    const leaderboard = (ui && typeof ui.createLeaderboard === 'function')
+      ? ui.createLeaderboard(progressStorage)
+      : null;
     let lastProgressText = '';
     let nextUnlockedTier = null;
+    let lastAddedScoreId = null;
+    let activeLeaderboardFilter = 'all';
 
     const renderer = new CanvasRendererClass(canvas, {
       enableHiDPI: true,
@@ -143,33 +155,47 @@
     // Update tier locks, selected device, and the selected tier's local best.
     const brandDeviceName = document.getElementById('brandDeviceName');
     const progressStatus = document.getElementById('progressStatus');
-    const tierOrder = ['standard', 'dust', 'titanium'];
-    const tierNames = ['Easy', 'Medium', 'Hard'];
     function updateTierButtonsUI(activeTierId) {
       const activeIndex = Math.max(0, tierOrder.indexOf(activeTierId));
       Object.keys(tierButtons).forEach(tierId => {
         const btn = tierButtons[tierId];
         if (!btn) return;
         const unlocked = progression.isUnlocked(tierId);
-        btn.disabled = !unlocked;
+        const cleared = progression.getBest(tierId) !== null;
+        // Keep all 5 level buttons clickable so players can jump directly to any foldable phone or play sequentially
+        btn.disabled = false;
         btn.classList.toggle('active', tierId === activeTierId);
         if (typeof btn.setAttribute === 'function') {
           btn.setAttribute('aria-pressed', tierId === activeTierId ? 'true' : 'false');
-          btn.setAttribute('aria-label', tierNames[tierOrder.indexOf(tierId)] + (unlocked ? ' level' : ' level, locked'));
+          btn.setAttribute('aria-label', tierNames[tierOrder.indexOf(tierId)] + (unlocked ? ' level' : ' level (click to unlock & play)'));
         }
-        btn.title = unlocked ? 'Select ' + tierNames[tierOrder.indexOf(tierId)] : 'Win the previous level to unlock';
+        btn.title = 'Select ' + tierNames[tierOrder.indexOf(tierId)];
         const lock = btn.querySelector('.tier-lock');
-        if (lock) lock.style.display = unlocked ? 'none' : '';
+        if (lock) {
+          lock.textContent = cleared ? '✓' : (unlocked ? '' : '🔒');
+          lock.style.display = (cleared || !unlocked) ? '' : 'none';
+        }
       });
-      if (brandDeviceName) brandDeviceName.textContent = (activeTierId === 'titanium') ? 'Samsung Fold 8' : 'iPhone Duo';
+      if (brandDeviceName) {
+        const modelMap = {
+          standard: 'iPhone Duo',
+          dust: 'iPhone Duo (Dust)',
+          titanium: 'Samsung Fold 8',
+          pixel: 'Pixel 10 Pro Fold',
+          trifold: 'Mate XT Tri-Fold'
+        };
+        brandDeviceName.textContent = modelMap[activeTierId] || 'iPhone Duo';
+      }
       if (progressStatus) {
         const best = progression.getBest(activeTierId);
         const bestText = best === null ? '—' : best.toFixed(2) + 's';
         const next = progression.getUnlockedCount();
-        const goal = next < 3 ? ' · Win ' + tierNames[next - 1] + ' to unlock ' + tierNames[next]
-          : (progression.getBest('titanium') !== null ? ' · All levels cleared!' : ' · Beat Hard to complete the campaign');
-        const saveNote = previewMode ? ' · Preview: no scores' : (!progression.isPersistent() ? ' · Session only' : '');
-        progressStatus.textContent = 'Level ' + (activeIndex + 1) + ' / 3 · Best: ' + bestText + goal + saveNote;
+        const topRecord = leaderboard ? leaderboard.getTop10(activeTierId)[0] : null;
+        const recordText = topRecord ? ` · #1 Record: ${topRecord.snapTime.toFixed(2)}s (${topRecord.name})` : '';
+        const goal = next < tierOrder.length ? ' · Win to advance to ' + tierNames[next]
+          : ' · All 5 Foldable Levels Unlocked!';
+        const saveNote = previewMode ? ' · Preview mode' : (!progression.isPersistent() ? ' · Session only' : '');
+        progressStatus.textContent = 'Level ' + (activeIndex + 1) + ' / ' + tierOrder.length + ' · Personal Best: ' + bestText + recordText + goal + saveNote;
       }
     }
     updateTierButtonsUI(engine.currentTier.id);
@@ -221,13 +247,17 @@
       }
 
       if (newState === EngineClass.STATES.SNAP_CELEBRATION) {
+        if (!progression.isUnlocked(engine.currentTier.id) && typeof progression.unlockAll === 'function') {
+          progression.unlockAll();
+        }
         const result = previewMode ? null : progression.recordWin(engine.currentTier.id, engine.snapTime);
-        nextUnlockedTier = result ? result.nextTier : null;
+        const curIdx = tierOrder.indexOf(engine.currentTier.id);
+        nextUnlockedTier = (result && result.nextTier) ? result.nextTier : (curIdx >= 0 && curIdx + 1 < tierOrder.length ? tierOrder[curIdx + 1] : null);
         if (result) {
           const best = progression.getBest(engine.currentTier.id);
-          const nextName = result.nextTier ? tierNames[tierOrder.indexOf(result.nextTier)] : '';
+          const nextName = nextUnlockedTier ? tierNames[tierOrder.indexOf(nextUnlockedTier)] : '';
           lastProgressText = (result.newBest ? 'New personal best: ' : 'Personal best: ') + best.toFixed(2) + 's' +
-            (result.unlockedNext ? ' · ' + nextName + ' unlocked!' : (engine.currentTier.id === 'titanium' ? ' · Campaign complete!' : '')) + (result.saved ? '' : ' · Saved for this session only');
+            (nextName ? ' · Next up: ' + nextName + '!' : ' · 5-Level Foldable Gauntlet Complete!') + (result.saved ? '' : ' · Saved for this session only');
           updateTierButtonsUI(engine.currentTier.id);
         } else lastProgressText = previewMode ? 'Preview mode — scores and unlocks are not saved.' : '';
         if (ui && ui.Captions) {
@@ -235,18 +265,37 @@
         }
       } else if (newState === EngineClass.STATES.SURVIVAL_FAIL) {
         nextUnlockedTier = null;
-        lastProgressText = 'No new unlock this round. Try again!';
+        lastProgressText = 'Phone survived! Mash faster or alternate A/D keys to snap the spine.';
         if (ui && ui.Captions) {
           ui.Captions.display(`The ${engine.currentTier.deviceModel || 'iPhone Duo'} survives this bend test.`, 3);
         }
       } else if (newState === EngineClass.STATES.REPORT_CARD) {
+        const reportData = engine.getReportCardData();
+        const scoreSection = document.getElementById('scoreSubmitSection');
+        const scoreFeedback = document.getElementById('scoreSubmitFeedback');
+        const btnSaveScore = document.getElementById('btnSaveScore');
+        if (scoreSection) {
+          scoreSection.style.display = (!reportData.survived && !previewMode) ? '' : 'none';
+        }
+        if (scoreFeedback) {
+          scoreFeedback.textContent = (!reportData.survived && !previewMode)
+            ? `Snapped ${reportData.deviceModel} in ${reportData.snapTime}s (${reportData.peakCps} CPS) — enter your name or @X_handle for the Top 10!`
+            : '';
+        }
+        if (btnSaveScore) {
+          btnSaveScore.disabled = false;
+          btnSaveScore.textContent = 'Save to Top 10';
+        }
         if (ui && typeof ui.showReportCard === 'function') {
-          ui.showReportCard(engine.getReportCardData(), {
+          ui.showReportCard(reportData, {
             progressText: lastProgressText,
-            nextLevelLabel: nextUnlockedTier ? 'Continue to ' + tierNames[tierOrder.indexOf(nextUnlockedTier)] : '',
+            nextLevelLabel: nextUnlockedTier ? 'Next Level: ' + tierNames[tierOrder.indexOf(nextUnlockedTier)] : '',
             onNextLevel: nextUnlockedTier ? () => {
               const next = nextUnlockedTier;
               nextUnlockedTier = null;
+              if (!progression.isUnlocked(next) && typeof progression.unlockAll === 'function') {
+                progression.unlockAll();
+              }
               engine.setTier(next);
               updateTierButtonsUI(next);
               updateOrientationButtonUI(engine.orientation);
@@ -382,14 +431,16 @@
     // 5. TOOLBAR BUTTON EVENT LISTENERS
     // =======================================================================
 
-    // Difficulty Tier Selection
+    // Difficulty Tier Selection (5 Foldable Levels)
     Object.keys(tierButtons).forEach(tierId => {
       const btn = tierButtons[tierId];
       if (btn) {
         btn.addEventListener('click', (e) => {
           e.preventDefault();
-          if (!progression.isUnlocked(tierId)) return;
           unlockAudio();
+          if (!progression.isUnlocked(tierId) && typeof progression.unlockAll === 'function') {
+            progression.unlockAll();
+          }
           previewMode = false;
           lastProgressText = '';
           engine.setTier(tierId);
@@ -397,13 +448,163 @@
           updateOrientationButtonUI(engine.orientation);
           if (ui && typeof ui.hideReportCard === 'function') ui.hideReportCard();
           if (ui && ui.Captions) {
-            if (tierId === 'standard') ui.Captions.display("Easy Level: iPhone Duo folding hinge... let's give it the bend test.", 1);
-            if (tierId === 'dust') ui.Captions.display("Medium Level: A little desert sand in the iPhone Duo hinge never hurt anyone... or did it?", 1);
-            if (tierId === 'titanium') ui.Captions.display("Hard Level: Samsung Galaxy Z Fold 8. Seven generations of Armor FlexHinge refinement... let's see if it survives.", 1);
+            if (tierId === 'standard') ui.Captions.display("Level 1 (Easy): The new Apple iPhone Duo is here—and it's time for an iPhone Duo Durability Test.", 2);
+            if (tierId === 'dust') ui.Captions.display("Level 2 (Medium): Let's pour a handful of coarse dirt and sand onto the iPhone Duo hinge and see if the magnets survive.", 2);
+            if (tierId === 'titanium') ui.Captions.display("Level 3 (Hard): Samsung Galaxy Z Fold 8. Seven generations of Armor FlexHinge refinement... let's see if it survives.", 2);
+            if (tierId === 'pixel') ui.Captions.display("Level 4 (Expert): Google Pixel 10 Pro Fold. Google left the antenna seam right beside the hinge again.", 2);
+            if (tierId === 'trifold') ui.Captions.display("Level 5 (Boss): Huawei Mate XT Tri-Fold. A 3.6mm phone with two opposing hinges—twice the places to snap backwards.", 2);
           }
         });
       }
     });
+
+    // Hear Quote Button & Subtitle Pill Click-to-Speak
+    function triggerSpokenZackQuote() {
+      unlockAudio();
+      if (audio && typeof audio.isMuted === 'function' && audio.isMuted() && typeof audio.setMuted === 'function') {
+        audio.setMuted(false);
+        updateMuteButtonUI();
+      }
+      if (ui && ui.Captions) {
+        const stageCat = (engine.state === EngineClass.STATES.ACTIVE_MASHING)
+          ? (engine.currentStage || 1)
+          : 'IDLE';
+        ui.Captions.trigger(stageCat, 3);
+      }
+    }
+    if (btnQuote) {
+      btnQuote.addEventListener('click', (e) => {
+        e.preventDefault();
+        triggerSpokenZackQuote();
+      });
+    }
+    if (captionPill) {
+      captionPill.addEventListener('click', (e) => {
+        e.preventDefault();
+        unlockAudio();
+        const currentText = (ui && ui.Captions && ui.Captions.currentQuip)
+          ? ui.Captions.currentQuip
+          : "The new Apple iPhone Duo is here—and it's time for an iPhone Duo Durability Test.";
+        if (audio && typeof audio.speakQuote === 'function') {
+          audio.speakQuote(currentText, true);
+        }
+      });
+    }
+
+    // Top 10 High Score Leaderboard UI & Modal Wiring
+    const leaderboardModal = document.getElementById('leaderboardModal');
+    const leaderboardTableBody = document.getElementById('leaderboardTableBody');
+    const btnCloseLeaderboard = document.getElementById('btnCloseLeaderboard');
+    const btnCloseLeaderboardFooter = document.getElementById('btnCloseLeaderboardFooter');
+    const btnOpenLeaderboardFromReport = document.getElementById('btnOpenLeaderboardFromReport');
+    const btnSaveScore = document.getElementById('btnSaveScore');
+    const playerNameInput = document.getElementById('playerNameInput');
+    const scoreSubmitFeedback = document.getElementById('scoreSubmitFeedback');
+
+    function renderLeaderboardModal(tierFilter = activeLeaderboardFilter) {
+      activeLeaderboardFilter = tierFilter || 'all';
+      if (!leaderboard || !leaderboardTableBody) return;
+      const rows = leaderboard.getTop10(activeLeaderboardFilter);
+      leaderboardTableBody.innerHTML = rows.map((row, idx) => {
+        const isHighlighted = (row.id === lastAddedScoreId) || row.isPlayer;
+        const medal = idx === 0 ? '🥇 #1' : (idx === 1 ? '🥈 #2' : (idx === 2 ? '🥉 #3' : `#${idx + 1}`));
+        return `<tr class="${isHighlighted ? 'lb-player-row' : ''}">
+          <td><span class="lb-rank-badge">${medal}</span></td>
+          <td>${String(row.name).replace(/[<>&]/g, '')}</td>
+          <td>${String(row.deviceModel).replace(/[<>&]/g, '')}</td>
+          <td><strong>${Number(row.snapTime).toFixed(2)}s</strong></td>
+          <td>${Number(row.peakCps || 0).toFixed(1)} CPS</td>
+          <td><strong>${String(row.grade || 'A')}</strong></td>
+        </tr>`;
+      }).join('');
+      const filterBtns = document.querySelectorAll ? document.querySelectorAll('.lb-filter-btn') : [];
+      Array.from(filterBtns).forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-lb-tier') === activeLeaderboardFilter);
+      });
+    }
+
+    function openLeaderboardModal(tierFilter = 'all') {
+      renderLeaderboardModal(tierFilter);
+      if (leaderboardModal) {
+        if (leaderboardModal.classList) {
+          leaderboardModal.classList.remove('hidden');
+          leaderboardModal.classList.add('active');
+        }
+        leaderboardModal.style.display = 'flex';
+      }
+    }
+
+    function closeLeaderboardModal() {
+      if (leaderboardModal) {
+        if (leaderboardModal.classList) {
+          leaderboardModal.classList.add('hidden');
+          leaderboardModal.classList.remove('active');
+        }
+        leaderboardModal.style.display = 'none';
+      }
+    }
+
+    if (btnLeaderboard) {
+      btnLeaderboard.addEventListener('click', (e) => {
+        e.preventDefault();
+        openLeaderboardModal('all');
+      });
+    }
+    if (btnOpenLeaderboardFromReport) {
+      btnOpenLeaderboardFromReport.addEventListener('click', (e) => {
+        e.preventDefault();
+        openLeaderboardModal('all');
+      });
+    }
+    if (btnCloseLeaderboard) {
+      btnCloseLeaderboard.addEventListener('click', (e) => {
+        e.preventDefault();
+        closeLeaderboardModal();
+      });
+    }
+    if (btnCloseLeaderboardFooter) {
+      btnCloseLeaderboardFooter.addEventListener('click', (e) => {
+        e.preventDefault();
+        closeLeaderboardModal();
+      });
+    }
+    if (document.querySelectorAll) {
+      Array.from(document.querySelectorAll('.lb-filter-btn')).forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const tierFilter = btn.getAttribute('data-lb-tier') || 'all';
+          renderLeaderboardModal(tierFilter);
+        });
+      });
+    }
+    if (btnSaveScore && leaderboard) {
+      btnSaveScore.addEventListener('click', (e) => {
+        e.preventDefault();
+        const reportData = engine.getReportCardData();
+        if (reportData.survived || !reportData.snapTime) return;
+        const playerName = (playerNameInput && playerNameInput.value) ? playerNameInput.value : 'Lab Tester';
+        const res = leaderboard.addScore({
+          name: playerName,
+          tierId: reportData.tierId,
+          deviceModel: reportData.deviceModel,
+          snapTime: parseFloat(reportData.snapTime),
+          peakCps: parseFloat(reportData.peakCps),
+          maxBendAngle: reportData.maxBendAngle,
+          grade: reportData.grade
+        });
+        if (res && res.entry) {
+          lastAddedScoreId = res.entry.id;
+          btnSaveScore.disabled = true;
+          btnSaveScore.textContent = 'Saved ✓';
+          if (scoreSubmitFeedback) {
+            scoreSubmitFeedback.textContent = res.madeTop10
+              ? `🎉 Ranked #${res.rank} Overall (#${res.tierRank || 1} on ${reportData.deviceModel}) in the Top 10 High Scores!`
+              : `Score logged (#${res.tierRank || 1} on ${reportData.deviceModel})! Click "Top 10 High Scores" to view.`;
+          }
+          updateTierButtonsUI(engine.currentTier.id);
+        }
+      });
+    }
 
     // Flip Orientation Toggle
     if (btnFlip) {
@@ -582,6 +783,7 @@
       ui,
       isLoopRunning: () => true,
       progression,
+      leaderboard,
       initGame
     };
     window.__BEND_TEST_CONTROLLER__ = controller;
@@ -596,7 +798,10 @@
       const qTier = params.get('tier');
       const qDamage = params.get('damage');
       const qFlip = params.get('flip');
-      if (qTier && progression.isUnlocked(qTier.toLowerCase())) {
+      if (qTier) {
+        if (!progression.isUnlocked(qTier.toLowerCase()) && typeof progression.unlockAll === 'function') {
+          progression.unlockAll();
+        }
         engine.setTier(qTier);
         updateTierButtonsUI(engine.currentTier.id);
       }

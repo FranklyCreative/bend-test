@@ -1329,8 +1329,11 @@
     _drawEdgeWingDetails(ctx, side, damagePct, isReverse, wingAngle) {
       const isLeft = (side === 'left');
       const isSamsungFold = (this._currentTierId === 'titanium');
+      const isPixelFold = (this._currentTierId === 'pixel');
+      const isTriFold = (this._currentTierId === 'trifold');
+      const isDustDuo = (this._currentTierId === 'dust');
       const L = EDGE_WING_LEN; // 358px
-      const H = isSamsungFold ? 20 : EDGE_RAIL_THICK; // Fold 8 has ultra-sleek squared 20px Armor Aluminum rails
+      const H = isTriFold ? 17 : (isSamsungFold ? 20 : (isPixelFold ? 21 : EDGE_RAIL_THICK));
       const halfH = H / 2;
 
       ctx.save();
@@ -1396,6 +1399,68 @@
             ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
             ctx.fillRect(ln.u0 + 1, halfH + 12.8 + ln.depth, w - 2, 1.0);
           }
+        } else if (isPixelFold) {
+          // GOOGLE PIXEL 10 PRO FOLD: Matte Warm Porcelain/Hazel Backglass + Raised Aluminum Visor Island
+          const pixBackGrad = ctx.createLinearGradient(0, halfH, 0, halfH + 7);
+          pixBackGrad.addColorStop(0, '#d8d5cc');
+          pixBackGrad.addColorStop(1, '#aba79e');
+          ctx.fillStyle = pixBackGrad;
+          ctx.beginPath();
+          ctx.moveTo(42, halfH - 0.5);
+          ctx.lineTo(48, halfH + 6.0);
+          ctx.lineTo(348, halfH + 6.0);
+          ctx.lineTo(353, halfH - 0.5);
+          ctx.closePath();
+          ctx.fill();
+
+          // Signature Flat Raised Brushed Aluminum Pixel Camera Visor (u = 188..338)
+          const visorGrad = ctx.createLinearGradient(188, halfH + 5, 338, halfH + 17);
+          visorGrad.addColorStop(0, '#e3e5e8');
+          visorGrad.addColorStop(0.5, '#b6bcc4');
+          visorGrad.addColorStop(1, '#7e848d');
+          ctx.fillStyle = visorGrad;
+          ctx.beginPath();
+          ctx.roundRect(188, halfH + 5.5, 150, 11.5, [0, 0, 5, 5]);
+          ctx.fill();
+
+          // Dark Pill Cutout Window along Visor Bottom Edge
+          ctx.fillStyle = '#0e1116';
+          ctx.beginPath();
+          ctx.roundRect(204, halfH + 13.5, 118, 3.8, [0, 0, 3, 3]);
+          ctx.fill();
+        } else if (isTriFold) {
+          // HUAWEI MATE XT TRI-FOLD: Crimson Red Vegan-Leather Backplate + Gold Star-Diamond Octagon Camera Housing
+          const leatherGrad = ctx.createLinearGradient(0, halfH, 0, halfH + 8);
+          leatherGrad.addColorStop(0, '#7c1d24');
+          leatherGrad.addColorStop(1, '#4a0f14');
+          ctx.fillStyle = leatherGrad;
+          ctx.beginPath();
+          ctx.moveTo(36, halfH - 0.5);
+          ctx.lineTo(42, halfH + 7.5);
+          ctx.lineTo(348, halfH + 7.5);
+          ctx.lineTo(354, halfH - 0.5);
+          ctx.closePath();
+          ctx.fill();
+
+          // Octagonal Champagne-Gold Star-Cut Camera Base (u = 212..342)
+          const octGrad = ctx.createLinearGradient(212, halfH + 7, 342, halfH + 18);
+          octGrad.addColorStop(0, '#f3d999');
+          octGrad.addColorStop(0.5, '#c79f4b');
+          octGrad.addColorStop(1, '#826122');
+          ctx.fillStyle = octGrad;
+          ctx.beginPath();
+          ctx.moveTo(212, halfH + 7.0);
+          ctx.lineTo(224, halfH + 16.5);
+          ctx.lineTo(330, halfH + 16.5);
+          ctx.lineTo(342, halfH + 7.0);
+          ctx.closePath();
+          ctx.fill();
+
+          // Dark Sapphire Periscope Lens Barrel
+          ctx.fillStyle = '#0d1015';
+          ctx.beginPath();
+          ctx.roundRect(242, halfH + 15.5, 70, 4.5, [0, 0, 3, 3]);
+          ctx.fill();
         } else {
           // IPHONE DUO: Dark protruding sapphire camera lens rings underneath the sculpted white ceramic plateau
           const lenses = [
@@ -1475,6 +1540,20 @@
         bodyGrad.addColorStop(0.48, '#a7b0be');
         bodyGrad.addColorStop(Math.min(0.92, 0.82 + sheenShift), '#31363f');
         bodyGrad.addColorStop(1, '#d5dde8');
+      } else if (isPixelFold) {
+        // Google Pixel 10 Pro Fold: Satin Warm Hazel-Aluminum rail
+        bodyGrad.addColorStop(0, '#eceee9');
+        bodyGrad.addColorStop(Math.max(0.08, 0.16 - sheenShift), '#5b635e');
+        bodyGrad.addColorStop(0.48, '#8d9690');
+        bodyGrad.addColorStop(Math.min(0.92, 0.82 + sheenShift), '#2a302d');
+        bodyGrad.addColorStop(1, '#cfd5d0');
+      } else if (isTriFold) {
+        // Huawei Mate XT Tri-Fold: Champagne Gold & Titanium rail
+        bodyGrad.addColorStop(0, '#fff2c9');
+        bodyGrad.addColorStop(Math.max(0.08, 0.16 - sheenShift), '#8c6b2f');
+        bodyGrad.addColorStop(0.48, '#dfc07c');
+        bodyGrad.addColorStop(Math.min(0.92, 0.82 + sheenShift), '#473312');
+        bodyGrad.addColorStop(1, '#f3d99b');
       } else {
         // iPhone Duo: High-Gloss Obsidian-Titanium rail matching video frame
         bodyGrad.addColorStop(0, '#c8d0d6'); // Soft polished upper chamfer
@@ -1488,7 +1567,7 @@
       ctx.beginPath();
       // The hinge stays square while the outer end rolls into the backplane.
       // Separate radii keep the Fold's squared profile distinct from the Duo.
-      const endRadius = isSamsungFold ? 5 : 9;
+      const endRadius = isSamsungFold ? 5 : (isTriFold ? 4 : 9);
       ctx.moveTo(0, -halfH + 0.8);
       ctx.lineTo(L - endRadius, -halfH);
       ctx.quadraticCurveTo(L, -halfH, L, -halfH + endRadius);
@@ -1497,6 +1576,28 @@
       ctx.lineTo(0, halfH - 0.8);
       ctx.closePath();
       ctx.fill();
+
+      // Tri-Fold secondary outer hinge knuckle marker at u = 175
+      if (isTriFold) {
+        ctx.fillStyle = '#3b290d';
+        ctx.fillRect(172, -halfH + 0.8, 5, H - 1.6);
+        ctx.strokeStyle = '#f8e3ab';
+        ctx.lineWidth = 1.0;
+        ctx.strokeRect(172, -halfH + 1.2, 5, H - 2.4);
+      }
+
+      // Dust-Jammed Duo: Coarse silica sand grains lodged along the rail & hinge seam
+      if (isDustDuo) {
+        const gritOffsets = [8, 16, 26, 39, 54, 72, 95, 122];
+        for (let g = 0; g < gritOffsets.length; g++) {
+          const gu = gritOffsets[g];
+          const gy = ((g * 7) % 11) - 5;
+          ctx.fillStyle = (g % 2 === 0) ? 'rgba(218, 188, 134, 0.82)' : 'rgba(168, 138, 92, 0.78)';
+          ctx.beginPath();
+          ctx.arc(gu, gy, 1.3 + (g % 2) * 0.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
 
       if (isSamsungFold) {
         ctx.save();
@@ -2221,8 +2322,11 @@
       ctx.fillText(`${angle}° BEND`, 0, 24);
       ctx.font = 'bold 10px "SF Mono", monospace';
       ctx.fillStyle = '#f1c979';
-      const deviceBadge = this._currentTierId === 'titanium' ? 'HARD • SAMSUNG GALAXY Z FOLD 8'
-        : this._currentTierId === 'dust' ? 'MEDIUM • DUST-JAMMED IPHONE DUO' : 'EASY • IPHONE DUO';
+      const deviceBadge = this._currentTierId === 'trifold' ? 'LVL 5 BOSS • HUAWEI MATE XT TRI-FOLD'
+        : this._currentTierId === 'pixel' ? 'LVL 4 EXPERT • GOOGLE PIXEL 10 PRO FOLD'
+        : this._currentTierId === 'titanium' ? 'LVL 3 HARD • SAMSUNG GALAXY Z FOLD 8'
+        : this._currentTierId === 'dust' ? 'LVL 2 MEDIUM • DUST-JAMMED IPHONE DUO'
+        : 'LVL 1 EASY • IPHONE DUO';
       ctx.fillText(deviceBadge, 0, 43);
 
       const maxForce = Number(snapshot.maxForce) > 0 ? Number(snapshot.maxForce) : 100;

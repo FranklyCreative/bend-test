@@ -207,6 +207,9 @@
   function setMuted(muted) {
     isMuted = Boolean(muted);
     setStoredMutePreference(isMuted);
+    if (isMuted) {
+      stopSpeech();
+    }
 
     if (masterGain && audioCtx) {
       const now = audioCtx.currentTime || 0;
@@ -717,6 +720,73 @@
     } catch (e) {}
   }
 
+  /**
+   * Cancels any active Web Speech API utterance.
+   */
+  function stopSpeech() {
+    try {
+      if (typeof window !== 'undefined' && window.speechSynthesis && typeof window.speechSynthesis.cancel === 'function') {
+        window.speechSynthesis.cancel();
+      }
+    } catch (e) {}
+  }
+
+  /**
+   * Speaks a JerryRigEverything quote aloud using Web Speech API (deep baritone Zack voice)
+   * paired with a warm studio broadcast mic cue so the player can hear every quote.
+   */
+  function speakQuote(text, forceSpeak = false) {
+    if ((isMuted && !forceSpeak) || !text) return false;
+
+    // 1. Subtle studio broadcast mic cue via WebAudio
+    try {
+      const ctx = ensureAudioContext();
+      if (ctx && compressorNode) {
+        const now = ctx.currentTime || 0;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(112, now);
+        if (osc.frequency.exponentialRampToValueAtTime) {
+          osc.frequency.exponentialRampToValueAtTime(86, now + 0.14);
+        }
+        gain.gain.setValueAtTime(0.14, now);
+        if (gain.gain.exponentialRampToValueAtTime) {
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        }
+        osc.connect(gain);
+        gain.connect(compressorNode);
+        osc.start(now);
+        if (osc.stop) osc.stop(now + 0.16);
+      }
+    } catch (e) {}
+
+    // 2. Spoken Voice Synthesis via Web Speech API
+    try {
+      if (typeof window !== 'undefined' && window.speechSynthesis && typeof window.SpeechSynthesisUtterance === 'function') {
+        window.speechSynthesis.cancel();
+        const cleanText = String(text).replace(/[“”"]/g, '');
+        const utter = new window.SpeechSynthesisUtterance(cleanText);
+        utter.pitch = 0.80; // Calm, deep Zack Nelson baritone
+        utter.rate = 0.98;
+        utter.volume = 1.0;
+
+        const voices = (typeof window.speechSynthesis.getVoices === 'function')
+          ? window.speechSynthesis.getVoices()
+          : [];
+        if (voices && voices.length > 0) {
+          const preferred = voices.find(v => /en[-_](US|GB)/i.test(v.lang) && /(Guy|David|Christopher|Eric|Roger|Daniel|Alex|Male|Google US English)/i.test(v.name)) ||
+                            voices.find(v => /en[-_]US/i.test(v.lang)) ||
+                            voices.find(v => /^en/i.test(v.lang));
+          if (preferred) utter.voice = preferred;
+        }
+        window.speechSynthesis.speak(utter);
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
   // =========================================================================
   // 8. EVENT SUBSCRIBER METHOD (AudioEventType Contract)
   // =========================================================================
@@ -810,10 +880,12 @@
     playCatastrophicSnap,
     playSnap: playCatastrophicSnap,
 
-    // Auxiliary SFX
+    // Auxiliary SFX & Spoken Quotes
     playCountdownTick,
     playCountdownGo,
     playFlip,
-    playSurvival
+    playSurvival,
+    speakQuote,
+    stopSpeech
   };
 });

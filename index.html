@@ -29,7 +29,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23153e28'/%3E%3Cpath d='M20 12h10v40H20z' fill='%238a8e94'/%3E%3Cpath d='M34 12h10v40H34z' fill='%238a8e94'/%3E%3Crect x='30' y='16' width='4' height='32' rx='2' fill='%23c9a444'/%3E%3Cpath d='M32 20v24' stroke='%2300ff66' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
 
   <!-- Stylesheet (strictly relative ./) -->
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./styles.css?v=5">
 </head>
 <body>
   <div id="appContainer">
@@ -75,13 +75,21 @@
         </div>
       </div>
 
-      <!-- Header Utilities (Flip, Mute) -->
+      <!-- Header Utilities (Quote, Leaderboard, Flip, Mute) -->
       <div class="header-actions">
+        <button id="btnQuote" class="btn-icon quote-btn" title="Hear Zack Nelson Quote Aloud" aria-label="Hear JerryRigEverything Quote">
+          <span class="icon">🎙️</span>
+          <span class="text">Hear Quote</span>
+        </button>
+        <button id="btnLeaderboard" class="btn-icon leaderboard-btn" title="View Top 10 High Score List" aria-label="Open Top 10 High Score Leaderboard">
+          <span class="icon">🏆</span>
+          <span class="text">Top 10</span>
+        </button>
         <button id="btnFlip" class="btn-icon flip orientation" title="Flip Phone (Reverse Bend vs Front Bend)" aria-label="Flip Phone Orientation">
           <span class="icon">🔄</span>
           <span class="text">Reverse Bend</span>
         </button>
-        <button id="btnMute" class="btn-icon mute audio" title="Toggle Sound" aria-label="Toggle Audio">
+        <button id="btnMute" class="btn-icon mute audio" title="Toggle Sound & Voice" aria-label="Toggle Audio">
           <span class="icon">🔊</span>
           <span class="text">Audio: ON</span>
         </button>
@@ -106,34 +114,42 @@
         </div>
       </div>
 
-      <!-- Zack Nelson Commentary Subtitle Pill -->
+      <!-- Zack Nelson Commentary Subtitle Pill (Large High-Contrast Cinema Banner + Voice Replay) -->
       <div id="captionContainer" class="caption-container">
-        <div id="caption-pill" class="caption-pill subtitle quip active">
-          <span class="speaker-tag" style="color: #F5A623; font-weight: 700; margin-right: 6px;">[JerryRigEverything]:</span>
-          <span class="quip-text" style="color: #FFFFFF; font-weight: 500;">&ldquo;Thumbs firmly placed on the back glass. Don't try this at home.&rdquo;</span>
+        <div id="caption-pill" class="caption-pill subtitle quip active" role="button" tabindex="0" title="Click to hear Zack say this quote aloud">
+          <span class="speaker-tag" style="color: #F5A623; font-weight: 800; margin-right: 8px;">🔊 [JerryRigEverything]:</span>
+          <span class="quip-text" style="color: #FFFFFF; font-weight: 700;">&ldquo;The new Apple iPhone Duo is here—and it's time for an iPhone Duo Durability Test.&rdquo;</span>
         </div>
       </div>
     </main>
 
     <!-- Bottom Arcade Control Toolbar -->
     <footer class="arcade-footer">
-      <!-- 3 Calibrated Difficulty Tiers -->
+      <!-- 5 Foldable Smartphone Levels -->
       <div class="tier-selector-group">
         <button id="tierStandard" class="tier-btn active standard tier difficulty" data-tier="standard">
           <span class="tier-dot"></span>
-          <span>Easy: iPhone Duo</span>
+          <span>L1: iPhone Duo</span>
         </button>
         <button id="tierDust" class="tier-btn dust tier difficulty" data-tier="dust">
           <span class="tier-dot"></span>
-          <span>Med: Dust-Jammed</span><span id="lockDust" class="tier-lock" aria-hidden="true">🔒</span>
+          <span>L2: Dust-Jammed</span><span id="lockDust" class="tier-lock" aria-hidden="true">🔒</span>
         </button>
         <button id="tierTitanium" class="tier-btn titanium tier difficulty" data-tier="titanium">
           <span class="tier-dot"></span>
-          <span>Hard: Samsung Fold 8</span><span id="lockTitanium" class="tier-lock" aria-hidden="true">🔒</span>
+          <span>L3: Samsung Fold 8</span><span id="lockTitanium" class="tier-lock" aria-hidden="true">🔒</span>
+        </button>
+        <button id="tierPixel" class="tier-btn pixel tier difficulty" data-tier="pixel">
+          <span class="tier-dot"></span>
+          <span>L4: Pixel 10 Fold</span><span id="lockPixel" class="tier-lock" aria-hidden="true">🔒</span>
+        </button>
+        <button id="tierTrifold" class="tier-btn trifold tier difficulty" data-tier="trifold">
+          <span class="tier-dot"></span>
+          <span>L5: Mate XT Tri-Fold</span><span id="lockTrifold" class="tier-lock" aria-hidden="true">🔒</span>
         </button>
       </div>
 
-      <div id="progressStatus" class="progress-status" role="status" aria-live="polite">Level 1 / 3 · Best: — · Win to unlock Medium</div>
+      <div id="progressStatus" class="progress-status" role="status" aria-live="polite">Level 1 / 5 · Best: — · Click any phone or win to advance</div>
 
       <!-- Action Buttons -->
       <div class="footer-actions">
@@ -213,9 +229,23 @@
           </table>
         </div>
 
-        <!-- Modal Actions (Download PNG, Share on X, Test Again) -->
+        <!-- Top 10 High Score Entry Form (Shown on Win) -->
+        <div id="scoreSubmitSection" class="score-submit-section">
+          <div class="score-submit-row">
+            <label for="playerNameInput" class="score-submit-label">🏆 Log Top 10 High Score:</label>
+            <input id="playerNameInput" type="text" class="score-name-input" maxlength="24" placeholder="Your Name or @X_handle" value="Lab Tester">
+            <button id="btnSaveScore" type="button" class="btn-arcade btn-save-score">Save to Top 10</button>
+          </div>
+          <p id="scoreSubmitFeedback" class="score-submit-feedback" aria-live="polite"></p>
+        </div>
+
+        <!-- Modal Actions (Download PNG, Share on X, Top 10, Test Again) -->
         <div class="report-actions">
           <button id="btnNextLevel" class="btn-arcade" style="display:none">Continue to next level</button>
+          <button id="btnOpenLeaderboardFromReport" class="btn-arcade btn-arcade-secondary">
+            <span>🏆</span>
+            <span>Top 10 High Scores</span>
+          </button>
           <button id="btnDownloadCard" class="btn-arcade btn-arcade-secondary btn-download-png">
             <span>💾</span>
             <span>Download PNG Card</span>
@@ -231,13 +261,55 @@
         </div>
       </div>
     </div>
+
+    <!-- Top 10 High Score Leaderboard Modal -->
+    <div id="leaderboardModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
+      <div class="report-card-modal-content leaderboard-modal-content">
+        <div class="report-header">
+          <div class="report-titles">
+            <h2 id="leaderboardTitle">🏆 Top 10 Bend Test High Scores</h2>
+            <p>Fastest Structural Snap Times &amp; Peak CPS Across All 5 Foldable Levels</p>
+          </div>
+          <button id="btnCloseLeaderboard" class="btn-icon" aria-label="Close Top 10 High Scores">✕</button>
+        </div>
+
+        <div class="leaderboard-filter-bar" role="tablist" aria-label="Filter Top 10 by Phone Level">
+          <button class="tier-btn active lb-filter-btn" data-lb-tier="all">All Phones</button>
+          <button class="tier-btn lb-filter-btn" data-lb-tier="standard">L1: iPhone Duo</button>
+          <button class="tier-btn lb-filter-btn" data-lb-tier="dust">L2: Dust-Jammed</button>
+          <button class="tier-btn lb-filter-btn" data-lb-tier="titanium">L3: Fold 8</button>
+          <button class="tier-btn lb-filter-btn" data-lb-tier="pixel">L4: Pixel Fold</button>
+          <button class="tier-btn lb-filter-btn" data-lb-tier="trifold">L5: Mate XT</button>
+        </div>
+
+        <div class="leaderboard-table-wrap">
+          <table class="invoice-table leaderboard-table">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Tester / @Handle</th>
+                <th>Foldable Device</th>
+                <th>Snap Time</th>
+                <th>Peak CPS</th>
+                <th>Grade</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboardTableBody"></tbody>
+          </table>
+        </div>
+
+        <div class="report-actions" style="margin-top: 16px;">
+          <button id="btnCloseLeaderboardFooter" class="btn-arcade">Back to Workbench</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Scripts: Strictly Relative ./ Paths (Zero External Bundlers or CDNs) -->
-  <script src="./js/engine.js"></script>
-  <script src="./js/canvas.js"></script>
-  <script src="./js/audio.js"></script>
-  <script src="./js/ui.js"></script>
-  <script src="./js/main.js"></script>
+  <script src="./js/engine.js?v=5"></script>
+  <script src="./js/canvas.js?v=5"></script>
+  <script src="./js/audio.js?v=5"></script>
+  <script src="./js/ui.js?v=5"></script>
+  <script src="./js/main.js?v=5"></script>
 </body>
 </html>

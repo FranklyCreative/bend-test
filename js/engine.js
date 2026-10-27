@@ -128,6 +128,56 @@
         damageScale: 0.55,
         comboBonus: 1.35
       }
+    },
+    pixel: {
+      id: 'pixel',
+      tierNumber: 4,
+      name: 'Google Pixel 10 Pro Fold',
+      displayName: 'Google Pixel 10 Pro Fold',
+      deviceBrand: 'Google',
+      deviceModel: 'Google Pixel 10 Pro Fold',
+      difficultyLabel: 'Expert • Pixel 10 Pro Fold',
+      chassis: 'Aerospace Aluminum + Fluid-Friction Hinge + Offset Antenna Seam',
+      runDuration: 15.0,
+      forcePerTap: 3.4,
+      yieldThreshold: 31.0,
+      decayRate: 2.3,
+      damageScale: 0.90,
+      comboBonus: 1.30,
+      targetCps: 10.5,
+      description: 'Google Pixel 10 Pro Fold with fluid-friction gearless hinge and offset antenna seam right beside the spine.',
+      calibrated: {
+        forcePerTap: 3.8,
+        yieldThreshold: 23.0,
+        decayRate: 1.8,
+        damageScale: 0.45,
+        comboBonus: 1.30
+      }
+    },
+    trifold: {
+      id: 'trifold',
+      tierNumber: 5,
+      name: 'Huawei Mate XT Tri-Fold',
+      displayName: 'Huawei Mate XT Tri-Fold',
+      deviceBrand: 'Huawei',
+      deviceModel: 'Huawei Mate XT Tri-Fold',
+      difficultyLabel: 'Boss • Mate XT Tri-Fold',
+      chassis: 'Ultra-Thin 3.6mm Dual-Hinge Ti-Alloy + Carbon Fiber Spine',
+      runDuration: 15.0,
+      forcePerTap: 2.8,
+      yieldThreshold: 42.0,
+      decayRate: 3.5,
+      damageScale: 0.72,
+      comboBonus: 1.40,
+      targetCps: 13.5,
+      description: 'Ultra-thin 3.6mm dual-hinge Z-fold flagship with twin opposing hinges and carbon-fiber reinforcement.',
+      calibrated: {
+        forcePerTap: 3.7,
+        yieldThreshold: 28.0,
+        decayRate: 2.3,
+        damageScale: 0.52,
+        comboBonus: 1.40
+      }
     }
   };
 
@@ -380,9 +430,13 @@
         if (tierKeyOrNum === 1) targetTier = DIFFICULTY_TIERS.standard;
         else if (tierKeyOrNum === 2) targetTier = DIFFICULTY_TIERS.dust;
         else if (tierKeyOrNum === 3) targetTier = DIFFICULTY_TIERS.titanium;
+        else if (tierKeyOrNum === 4) targetTier = DIFFICULTY_TIERS.pixel;
+        else if (tierKeyOrNum === 5) targetTier = DIFFICULTY_TIERS.trifold;
       } else if (typeof tierKeyOrNum === 'string') {
         const key = tierKeyOrNum.toLowerCase();
-        if (key.includes('standard') || key.includes('duo') || key.includes('easy') || key === '1') targetTier = DIFFICULTY_TIERS.standard;
+        if (key.includes('trifold') || key.includes('mate') || key.includes('huawei') || key.includes('boss') || key === '5') targetTier = DIFFICULTY_TIERS.trifold;
+        else if (key.includes('pixel') || key.includes('google') || key.includes('expert') || key === '4') targetTier = DIFFICULTY_TIERS.pixel;
+        else if (key.includes('standard') || key.includes('duo') || key.includes('easy') || key === '1') targetTier = DIFFICULTY_TIERS.standard;
         else if (key.includes('dust') || key.includes('medium') || key === '2') targetTier = DIFFICULTY_TIERS.dust;
         else if (key.includes('titanium') || key.includes('samsung') || key.includes('fold') || key.includes('hard') || key === '3') targetTier = DIFFICULTY_TIERS.titanium;
       }
@@ -533,7 +587,7 @@
       // 3. Force Impulse Calculation (with human-friendly interactiveAssist in browser)
       const tierId = this.currentTier ? this.currentTier.id : 'standard';
       const assistForceMult = this.options.interactiveAssist
-        ? (tierId === 'titanium' ? 2.53 : (tierId === 'dust' ? 0.95 : 1.0))
+        ? (tierId === 'trifold' ? 2.85 : (tierId === 'titanium' ? 2.53 : (tierId === 'pixel' ? 1.68 : (tierId === 'dust' ? 0.95 : 1.0))))
         : 1.0;
 
       const deltaForce = this.currentTier.forcePerTap *

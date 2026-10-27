@@ -46,22 +46,26 @@
   // =========================================================================
 
   const QUIPS = {
-    // Idle / Pre-run / Tier Select
+    // Idle / Pre-run / Tier Select (including "iPhone Duo Durability: Destroyed" - 5laDGy4INB0)
     IDLE: [
-      "Today we have the folding iPhone Duo on the channel.",
+      "The new Apple iPhone Duo is here—and it's time for an iPhone Duo Durability Test.",
+      "It's totally the first folding phone ever made. There is no way Samsung has already been doing it for 7 years.",
+      "Are you going to take off the nano-texture display on your own iPhone Duo? You probably shouldn't.",
       "Thumbs firmly placed on the back glass. Don't try this at home.",
-      "Let's see if the hinge will survive.",
-      "Standard folding hinge... let's give it the bend test.",
+      "Let's see if the hinge will survive the stress of everyday life: dust, burns, and bends.",
       "A little sand in the hinge never hurt anyone... or did it?",
       "Reinforced titanium. Apple claims it's their strongest yet. We'll see about that.",
-      "Now we have the Samsung Galaxy Z Fold 8. Seven generations of Armor FlexHinge refinement... let's see if it survives."
+      "Now we have the Samsung Galaxy Z Fold 8. Seven generations of Armor FlexHinge refinement... let's see if it survives.",
+      "Google put the antenna line right next to the hinge on the Pixel Fold. Let's see if history repeats itself.",
+      "A 3.6 millimeter tri-fold phone has two hinges—which means twice the places to fold backwards."
     ],
 
     // Countdown phase
     COUNTDOWN: [
       "Let's bend it backwards and see what happens.",
       "Three, two, one... maximum thumb pressure.",
-      "Remember: thumbs in the center, fingers wrapping the frame."
+      "Remember: thumbs in the center, fingers wrapping the frame.",
+      "Time for the structural bend test. Thumbs on the spine."
     ],
 
     // Stage 1: Initial Elastic Flex (1% - 24% damage)
@@ -69,20 +73,25 @@
       "There's a little bit of flex in the chassis, but it's holding together.",
       "You can hear the internal adhesive creaking already.",
       "A normal phone shouldn't flex this much in your pocket.",
-      "Initial resistance is stiff, but the aluminum is yielding."
+      "Initial resistance is stiff, but the aluminum is yielding.",
+      "The magnets keeping the hinge shut are already starting to complain.",
+      "You would think that the new iPhone Duo would be slightly stronger... but here we are."
     ],
 
     // Stage 2: Plastic Deformation (25% - 49% damage)
     STAGE_2: [
       "Scratches at a level 2 with deeper grooves at a level 3.",
+      "Plastic inner nano-texture screen scratches at a level 2 with deeper grooves at a level 3.",
       "The aluminum frame is starting to permanently warp.",
       "The back glass is slightly separating from the midframe.",
-      "That creaking sound is definitely not covered under AppleCare."
+      "That creaking sound is definitely not covered under AppleCare.",
+      "Coarse dirt and sand are grinding right inside the micro-gears."
     ],
 
     // Stage 3: OLED Glitch / Green Line (50% - 74% damage)
     STAGE_3: [
       "And the inner display gives us the green line of death.",
+      "Permanent green lines are stretching straight across the inner nano-texture display.",
       "A bright vertical magenta line just appeared straight down the crease.",
       "The touch digitizer has stopped responding on the right panel.",
       "OLED pixels are bleeding out like a cheap pen."
@@ -93,15 +102,17 @@
       "Glass is glass, and glass breaks.",
       "The back glass has completely spiderwebbed under my thumbs.",
       "The structural integrity has officially left the chat.",
-      "I can see the lithium battery pouch through the seam. No smoke yet."
+      "I can see the lithium battery pouch through the seam. No smoke yet.",
+      "The antenna seam right beside the hinge is splitting wide open."
     ],
 
     // Stage 5: Catastrophic Snap (100% damage failure)
     STAGE_5: [
       "$1,499 out-of-warranty inner display repair.",
+      "iPhone Duo Durability: Destroyed. The flexible inner panel is completely dead.",
       "The display has failed, but the chassis is still holding together.",
       "The folding display has failed under the strain.",
-      "The display needs replacing, even though the frame is still connected."
+      "Lego-style ribbon cables inside—except this repair costs $1,499 out of warranty."
     ],
 
     // Survival / Timeout (< 100% damage when timer runs out)
@@ -345,8 +356,8 @@
       const el = this._resolveElement();
       if (el) {
         // Construct authentic YouTube-style subtitle pill HTML with amber #F5A623 accent
-        const speakerHtml = '<span class="speaker-tag" style="color: #F5A623; font-weight: 700; margin-right: 6px;">[JerryRigEverything]:</span>';
-        const quoteHtml = `<span class="quip-text" style="color: #FFFFFF; font-weight: 500;">&ldquo;${text}&rdquo;</span>`;
+        const speakerHtml = '<span class="speaker-tag" style="color: #F5A623; font-weight: 800; margin-right: 8px;">🔊 [JerryRigEverything]:</span>';
+        const quoteHtml = `<span class="quip-text" style="color: #FFFFFF; font-weight: 700;">&ldquo;${text}&rdquo;</span>`;
 
         if (el.innerHTML !== undefined) {
           el.innerHTML = `${speakerHtml} ${quoteHtml}`;
@@ -358,7 +369,14 @@
           el.classList.add('active');
         }
 
-        const visibleDuration = durationMs || Math.max(2800, text.length * 65);
+        // Audibly speak the quote using the Web Speech API + baritone mic cue when unmuted
+        try {
+          if (typeof root !== 'undefined' && root.JRE && root.JRE.audio && typeof root.JRE.audio.speakQuote === 'function') {
+            root.JRE.audio.speakQuote(text);
+          }
+        } catch (_) {}
+
+        const visibleDuration = durationMs || Math.max(4200, text.length * 75);
         this.dismissTimer = setTimeout(() => {
           if (el.classList && el.classList.remove) {
             el.classList.remove('active');
@@ -842,17 +860,31 @@
     setText('report-total-taps', `${metrics.totalTaps || 0}`);
     setText('report-total-bill', `$${bill.totalBill.toLocaleString('en-US')}`);
 
-    // Dynamically tailor repair invoice labels for AppleCare+ (iPhone Duo) vs Samsung Care+ (Galaxy Z Fold 8)
+    // Dynamically tailor repair invoice labels by brand
     const isSamsung = (metrics.tierId === 'titanium') || (metrics.deviceBrand === 'Samsung') || (metrics.displayName && metrics.displayName.includes('Samsung'));
+    const isPixel = (metrics.tierId === 'pixel') || (metrics.deviceBrand === 'Google');
+    const isHuawei = (metrics.tierId === 'trifold') || (metrics.deviceBrand === 'Huawei');
     if (isSamsung) {
       setText('report-invoice-title', 'Samsung Care+ Out-of-Warranty Repair Invoice');
       setText('report-label-screen', 'Dynamic AMOLED 2X Inner Folding Display');
       setText('report-label-hinge', 'Dual-Rail Armor FlexHinge Assembly');
       setText('report-label-frame', 'Armor Aluminum & Titanium Frame Alignment');
       setText('report-label-battery', 'Dual-Cell Lithium Battery Hazard Disposal');
+    } else if (isPixel) {
+      setText('report-invoice-title', 'Google Preferred Care Out-of-Warranty Repair Invoice');
+      setText('report-label-screen', 'Super Actua Flex Inner OLED Display');
+      setText('report-label-hinge', 'Fluid-Friction Gearless Hinge Assembly');
+      setText('report-label-frame', 'Split Antenna Seam & Aerospace Aluminum Frame');
+      setText('report-label-battery', 'Offset Dual-Pouch Battery Disposal');
+    } else if (isHuawei) {
+      setText('report-invoice-title', 'Huawei Care+ Tri-Fold Out-of-Warranty Invoice');
+      setText('report-label-screen', '10.2" Triple-Folding OLED UTG Panel');
+      setText('report-label-hinge', 'Ti-Alloy Dual-Track Opposing Hinges (×2)');
+      setText('report-label-frame', '3.6mm Ultra-Thin Carbon-Gold Midframe');
+      setText('report-label-battery', 'Tri-Cell Silicon-Carbon Battery Disposal');
     } else {
       setText('report-invoice-title', 'AppleCare+ Out-of-Warranty Repair Invoice');
-      setText('report-label-screen', 'Inner Folding OLED Display Assembly');
+      setText('report-label-screen', 'Inner Folding Nano-Texture OLED Display');
       setText('report-label-hinge', 'Dual-Axis Micro-Gear Hinge Mechanism');
       setText('report-label-frame', 'Titanium Midframe Realignment');
       setText('report-label-battery', 'Lithium Battery Pouch Hazard Disposal');
@@ -931,20 +963,23 @@
   // current session playable in memory without deleting any existing data.
   const PROGRESS_KEY = 'bend-test.progress.v1';
   const PROGRESS_TIERS = ['standard', 'dust', 'titanium'];
-  function createProgression(storage) {
+  function createProgression(storage, customTiers = null) {
+    const tiers = Array.isArray(customTiers) && customTiers.length >= 3 ? customTiers.slice() : PROGRESS_TIERS;
+    const storageKey = Array.isArray(customTiers) ? 'bend-test.progress.v2' : PROGRESS_KEY;
+    const maxLevels = tiers.length;
     const state = { unlocked: 1, best: {} };
     let canSave = true;
     try {
       if (storage) {
-        const raw = storage.getItem(PROGRESS_KEY);
+        const raw = storage.getItem(storageKey);
         if (raw !== null) {
           const saved = JSON.parse(raw);
           if (!saved || saved.version !== 1 || !Number.isInteger(saved.unlocked) ||
-              saved.unlocked < 1 || saved.unlocked > 3 || !saved.best || typeof saved.best !== 'object') {
+              saved.unlocked < 1 || saved.unlocked > maxLevels || !saved.best || typeof saved.best !== 'object') {
             canSave = false; // Preserve unrecognised records instead of overwriting them.
           } else {
             state.unlocked = saved.unlocked;
-            for (const tier of PROGRESS_TIERS) {
+            for (const tier of tiers) {
               const time = saved.best[tier];
               if (typeof time === 'number' && Number.isFinite(time) && time > 0 && time <= 3600) state.best[tier] = time;
             }
@@ -953,31 +988,148 @@
       } else canSave = false;
     } catch (_) { canSave = false; }
     const isUnlocked = tier => {
-      const index = PROGRESS_TIERS.indexOf(tier);
+      const index = tiers.indexOf(tier);
       return index >= 0 && index < state.unlocked;
     };
     function recordWin(tier, seconds) {
-      const index = PROGRESS_TIERS.indexOf(tier);
+      const index = tiers.indexOf(tier);
       const time = Number(seconds);
       if (index < 0 || !isUnlocked(tier) || !Number.isFinite(time) || time <= 0 || time > 3600) return null;
       const previous = state.best[tier];
       const newBest = previous === undefined || time < previous;
       if (newBest) state.best[tier] = time;
-      const unlockedNext = index + 1 === state.unlocked && state.unlocked < PROGRESS_TIERS.length;
+      const unlockedNext = index + 1 === state.unlocked && state.unlocked < tiers.length;
       if (unlockedNext) state.unlocked++;
       let saved = false;
       if (canSave && storage) {
         try {
-          storage.setItem(PROGRESS_KEY, JSON.stringify({version: 1, unlocked: state.unlocked, best: state.best}));
+          storage.setItem(storageKey, JSON.stringify({version: 1, unlocked: state.unlocked, best: state.best}));
           saved = true;
         } catch (_) { canSave = false; }
       }
-      return {newBest, unlockedNext, nextTier: unlockedNext ? PROGRESS_TIERS[index + 1] : null, saved};
+      return {newBest, unlockedNext, nextTier: unlockedNext ? tiers[index + 1] : null, saved};
+    }
+    function unlockAll() {
+      state.unlocked = tiers.length;
+      if (canSave && storage) {
+        try {
+          storage.setItem(storageKey, JSON.stringify({version: 1, unlocked: state.unlocked, best: state.best}));
+        } catch (_) {}
+      }
+      return state.unlocked;
     }
     return {
-      isUnlocked, recordWin,
+      isUnlocked, recordWin, unlockAll,
       getBest: tier => state.best[tier] === undefined ? null : state.best[tier],
       getUnlockedCount: () => state.unlocked,
+      getTiers: () => tiers.slice(),
+      isPersistent: () => canSave
+    };
+  }
+
+  // =========================================================================
+  // 8B. TOP 10 HIGH SCORE LEADERBOARD ENGINE
+  // =========================================================================
+
+  const LEADERBOARD_KEY = 'bend-test.leaderboard.v1';
+  const SEEDED_TOP_SCORES = [
+    { id: 'seed-1', name: 'Zack (@ZacksJerryRig)', tierId: 'standard', deviceModel: 'iPhone Duo', snapTime: 6.42, peakCps: 15.4, maxBendAngle: 38, grade: 'S', isSeed: true },
+    { id: 'seed-2', name: 'TwinThumbs_Pro', tierId: 'standard', deviceModel: 'iPhone Duo', snapTime: 7.85, peakCps: 13.8, maxBendAngle: 38, grade: 'A', isSeed: true },
+    { id: 'seed-3', name: 'MohsScaleLevel7', tierId: 'dust', deviceModel: 'iPhone Duo (Dust-Jammed)', snapTime: 9.14, peakCps: 13.1, maxBendAngle: 38, grade: 'A', isSeed: true },
+    { id: 'seed-4', name: 'GlassIsGlass', tierId: 'titanium', deviceModel: 'Samsung Galaxy Z Fold 8', snapTime: 10.60, peakCps: 14.6, maxBendAngle: 38, grade: 'A', isSeed: true },
+    { id: 'seed-5', name: 'DeeperGrooves', tierId: 'pixel', deviceModel: 'Google Pixel 10 Pro Fold', snapTime: 11.25, peakCps: 13.2, maxBendAngle: 38, grade: 'A', isSeed: true },
+    { id: 'seed-6', name: 'GreenLineHunter', tierId: 'trifold', deviceModel: 'Huawei Mate XT Tri-Fold', snapTime: 12.40, peakCps: 15.1, maxBendAngle: 38, grade: 'B', isSeed: true },
+    { id: 'seed-7', name: 'BenchBlade_99', tierId: 'standard', deviceModel: 'iPhone Duo', snapTime: 13.10, peakCps: 10.2, maxBendAngle: 38, grade: 'B', isSeed: true },
+    { id: 'seed-8', name: 'FlexHingeBreaker', tierId: 'titanium', deviceModel: 'Samsung Galaxy Z Fold 8', snapTime: 14.85, peakCps: 12.8, maxBendAngle: 38, grade: 'B', isSeed: true },
+    { id: 'seed-9', name: 'SandInTheGears', tierId: 'dust', deviceModel: 'iPhone Duo (Dust-Jammed)', snapTime: 16.90, peakCps: 9.4, maxBendAngle: 38, grade: 'C', isSeed: true },
+    { id: 'seed-10', name: 'AppleCareDenied', tierId: 'standard', deviceModel: 'iPhone Duo', snapTime: 19.45, peakCps: 7.6, maxBendAngle: 38, grade: 'C', isSeed: true }
+  ];
+
+  function createLeaderboard(storage) {
+    let entries = SEEDED_TOP_SCORES.map(item => Object.assign({}, item));
+    let canSave = true;
+
+    function sortEntries(list) {
+      return list.slice().sort((a, b) => {
+        if (Math.abs(a.snapTime - b.snapTime) > 0.001) return a.snapTime - b.snapTime;
+        return (b.peakCps || 0) - (a.peakCps || 0);
+      });
+    }
+
+    try {
+      if (storage) {
+        const raw = storage.getItem(LEADERBOARD_KEY);
+        if (raw !== null) {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.version === 1 && Array.isArray(parsed.entries)) {
+            const validCustom = parsed.entries.filter(e =>
+              e && typeof e.name === 'string' && typeof e.snapTime === 'number' &&
+              Number.isFinite(e.snapTime) && e.snapTime > 0 && e.snapTime <= 3600
+            );
+            // Merge custom entries with seeded records (avoiding duplicate ids)
+            const seenIds = new Set(validCustom.map(e => e.id));
+            entries = sortEntries(validCustom.concat(SEEDED_TOP_SCORES.filter(s => !seenIds.has(s.id)))).slice(0, 30);
+          } else {
+            canSave = false;
+          }
+        }
+      } else {
+        canSave = false;
+      }
+    } catch (_) {
+      canSave = false;
+    }
+
+    entries = sortEntries(entries);
+
+    function getTop10(tierFilter = 'all') {
+      const filtered = (!tierFilter || tierFilter === 'all')
+        ? entries
+        : entries.filter(e => e.tierId === tierFilter);
+      return sortEntries(filtered).slice(0, 10);
+    }
+
+    function addScore(record = {}) {
+      const snapTime = Number(record.snapTime);
+      if (!Number.isFinite(snapTime) || snapTime <= 0 || snapTime > 3600) return null;
+      const cleanName = String(record.name || 'Lab Tester').trim().slice(0, 28) || 'Lab Tester';
+      const entry = {
+        id: 'run-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
+        name: cleanName,
+        tierId: String(record.tierId || 'standard'),
+        deviceModel: String(record.deviceModel || 'iPhone Duo'),
+        snapTime: Number(snapTime.toFixed(2)),
+        peakCps: Number(Number(record.peakCps || 0).toFixed(1)),
+        maxBendAngle: Math.round(Number(record.maxBendAngle || 38)),
+        grade: String(record.grade || 'A'),
+        isPlayer: true
+      };
+      entries = sortEntries([entry].concat(entries)).slice(0, 30);
+      const top10All = getTop10('all');
+      const rankAll = top10All.findIndex(e => e.id === entry.id) + 1;
+      const top10Tier = getTop10(entry.tierId);
+      const rankTier = top10Tier.findIndex(e => e.id === entry.id) + 1;
+      let saved = false;
+      if (canSave && storage) {
+        try {
+          storage.setItem(LEADERBOARD_KEY, JSON.stringify({ version: 1, entries }));
+          saved = true;
+        } catch (_) {
+          canSave = false;
+        }
+      }
+      return {
+        entry,
+        rank: rankAll > 0 ? rankAll : null,
+        tierRank: rankTier > 0 ? rankTier : null,
+        madeTop10: rankAll > 0 && rankAll <= 10,
+        saved
+      };
+    }
+
+    return {
+      getTop10,
+      addScore,
       isPersistent: () => canSave
     };
   }
@@ -990,6 +1142,7 @@
     // Quip database
     QUIPS,
     createProgression,
+    createLeaderboard,
 
     // Subtitle & Caption Engine
     Captions: captionEngine,
