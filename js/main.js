@@ -276,12 +276,43 @@
         const scoreSection = document.getElementById('scoreSubmitSection');
         const scoreFeedback = document.getElementById('scoreSubmitFeedback');
         const btnSaveScore = document.getElementById('btnSaveScore');
-        if (scoreSection) {
-          scoreSection.style.display = (!reportData.survived && !previewMode) ? '' : 'none';
+        const nameEl = document.getElementById('playerNameInput');
+        const lbNameEl = document.getElementById('leaderboardPlayerNameInput');
+        const savedName = (leaderboard && typeof leaderboard.getPlayerName === 'function')
+          ? leaderboard.getPlayerName()
+          : 'Lab Tester';
+        if (nameEl && (!nameEl.value || nameEl.value === 'Lab Tester') && savedName !== 'Lab Tester') {
+          nameEl.value = savedName;
         }
-        if (scoreFeedback) {
-          scoreFeedback.textContent = (!reportData.survived && !previewMode)
-            ? `Snapped ${reportData.deviceModel} in ${reportData.snapTime}s (${reportData.peakCps} CPS) — enter your name or @X_handle for the Top 10!`
+        const activePlayerName = (nameEl && nameEl.value && nameEl.value.trim()) ? nameEl.value.trim() : savedName;
+        if (lbNameEl) lbNameEl.value = activePlayerName;
+        reportData.playerName = activePlayerName;
+
+        // Always show Tester Name input on Report Card; auto-save winning runs to Top 10 immediately
+        if (scoreSection) {
+          scoreSection.style.display = !previewMode ? '' : 'none';
+        }
+        if (!reportData.survived && !previewMode && leaderboard && reportData.snapTime) {
+          lastAddedScoreId = 'run-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
+          const autoRes = leaderboard.addScore({
+            id: lastAddedScoreId,
+            name: activePlayerName,
+            tierId: reportData.tierId,
+            deviceModel: reportData.deviceModel,
+            snapTime: parseFloat(reportData.snapTime),
+            peakCps: parseFloat(reportData.peakCps),
+            maxBendAngle: reportData.maxBendAngle,
+            grade: reportData.grade
+          });
+          if (scoreFeedback && autoRes) {
+            scoreFeedback.textContent = autoRes.madeTop10
+              ? `🏆 Ranked #${autoRes.rank} Overall (#${autoRes.tierRank || 1} on ${reportData.deviceModel}) as "${activePlayerName}" — edit name above to update!`
+              : `Score saved as "${activePlayerName}" (#${autoRes.tierRank || 1} on ${reportData.deviceModel}) — edit name above to update!`;
+          }
+          updateTierButtonsUI(engine.currentTier.id);
+        } else if (scoreFeedback) {
+          scoreFeedback.textContent = (!previewMode)
+            ? `Tester Name set to "${activePlayerName}" on your ${reportData.deviceModel} Report Card.`
             : '';
         }
         if (btnSaveScore) {
@@ -292,6 +323,14 @@
           ui.showReportCard(reportData, {
             progressText: lastProgressText,
             nextLevelLabel: nextUnlockedTier ? 'Next Level: ' + tierNames[tierOrder.indexOf(nextUnlockedTier)] : '',
+            onSyncPlayerName: (liveName) => {
+              if (leaderboard && typeof leaderboard.setPlayerName === 'function') {
+                leaderboard.setPlayerName(liveName);
+              }
+              if (lastAddedScoreId && leaderboard && typeof leaderboard.updateEntryName === 'function') {
+                leaderboard.updateEntryName(lastAddedScoreId, liveName);
+              }
+            },
             onNextLevel: nextUnlockedTier ? () => {
               const next = nextUnlockedTier;
               nextUnlockedTier = null;
@@ -316,8 +355,22 @@
     // 4. INPUT HANDLING: KEYBOARD & MULTI-TOUCH
     // =======================================================================
 
-    // Keyboard controls with auto-repeat rejection
+    function isTextInputEvent(e) {
+      if (!e || !e.target) return false;
+      const tag = e.target.tagName ? String(e.target.tagName).toUpperCase() : '';
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || Boolean(e.target.isContentEditable);
+    }
+
+    // Keyboard controls with auto-repeat rejection & text input guard
     window.addEventListener('keydown', (e) => {
+      if (isTextInputEvent(e)) {
+        if (e.code === 'Enter' || e.key === 'Enter') {
+          e.preventDefault();
+          const saveBtn = document.getElementById('btnSaveScore');
+          if (saveBtn) saveBtn.click();
+        }
+        return; // Allow normal typing (including A, D, F, R, M, Space) in name input fields
+      }
       if (e.repeat) return; // Discard OS repeat events
 
       // Universal audio unlock
@@ -372,6 +425,7 @@
 
     // Keyboard keyup handling to release visual active states
     window.addEventListener('keyup', (e) => {
+      if (isTextInputEvent(e)) return;
       if (e.code === 'KeyA' || e.code === 'ArrowLeft') {
         if (leftTouchZone) leftTouchZone.classList.remove('active');
       } else if (e.code === 'KeyD' || e.code === 'ArrowRight') {
@@ -564,10 +618,91 @@
     const btnSaveScore = document.getElementById('btnSaveScore');
     const playerNameInput = document.getElementById('playerNameInput');
     const scoreSubmitFeedback = document.getElementById('scoreSubmitFeedback');
+    const leaderboardPlayerNameInput = document.getElementById('leaderboardPlayerNameInput');
+    const btnUpdateLeaderboardName = document.getElementById('btnUpdateLeaderboardName');
+    const leaderboardNameFeedback = document.getElementById('leaderboardNameFeedback');
+
+    // Initialize saved player name in inputs if present
+    if (leaderboard && typeof leaderboard.getPlayerName === 'function') {
+      const initialSavedName = leaderboard.getPlayerName();
+      if (playerNameInput && (!playerNameInput.value || playerNameInput.value === 'Lab Tester')) {
+        playerNameInput.value = initialSavedName;
+      }
+      if (leaderboardPlayerNameInput && (!leaderboardPlayerNameInput.value || leaderboardPlayerNameInput.value === 'Lab Tester')) {
+        leaderboardPlayerNameInput.value = initialSavedName;
+      }
+    }
+
+    function saveAndSyncPlayerName(rawName, showExplicitSavedState = false) {
+      if (!leaderboard) return 'Lab Tester';
+      const cleaned = (typeof leaderboard.setPlayerName === 'function')
+        ? leaderboard.setPlayerName(rawName || 'Lab Tester')
+        : (String(rawName || 'Lab Tester').trim().slice(0, 22) || 'Lab Tester');
+
+      if (playerNameInput && document.activeElement !== playerNameInput) {
+        playerNameInput.value = cleaned;
+      }
+      if (leaderboardPlayerNameInput && document.activeElement !== leaderboardPlayerNameInput) {
+        leaderboardPlayerNameInput.value = cleaned;
+      }
+
+      const reportData = engine.getReportCardData();
+      const subtitleEl = document.getElementById('reportVerdictSubtitle');
+      if (subtitleEl) {
+        const dmgRound = Math.round(Number(reportData.damagePct || 0));
+        subtitleEl.textContent = !reportData.survived
+          ? `Tested by ${cleaned} • ${reportData.deviceModel || 'iPhone Duo'} (${dmgRound}% Damage)`
+          : `Tested by ${cleaned} • ${reportData.deviceModel || 'iPhone Duo'} Survived (${dmgRound}% Damage)`;
+      }
+      let res = null;
+      if (!reportData.survived && reportData.snapTime && !previewMode) {
+        if (!lastAddedScoreId) {
+          lastAddedScoreId = 'run-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
+        }
+        res = leaderboard.addScore({
+          id: lastAddedScoreId,
+          name: cleaned,
+          tierId: reportData.tierId,
+          deviceModel: reportData.deviceModel,
+          snapTime: parseFloat(reportData.snapTime),
+          peakCps: parseFloat(reportData.peakCps),
+          maxBendAngle: reportData.maxBendAngle,
+          grade: reportData.grade
+        });
+      } else if (typeof leaderboard.updateEntryName === 'function') {
+        leaderboard.updateEntryName(lastAddedScoreId, cleaned);
+      }
+
+      if (showExplicitSavedState) {
+        if (btnSaveScore) {
+          btnSaveScore.textContent = 'Saved ✓';
+        }
+        if (scoreSubmitFeedback) {
+          if (res && res.entry) {
+            scoreSubmitFeedback.textContent = res.madeTop10
+              ? `🎉 Saved as "${cleaned}" — Ranked #${res.rank} Overall (#${res.tierRank || 1} on ${reportData.deviceModel}) in the Top 10!`
+              : `Saved as "${cleaned}" (#${res.tierRank || 1} on ${reportData.deviceModel})! Click "Top 10 High Scores" to view.`;
+          } else {
+            scoreSubmitFeedback.textContent = `✓ Tester name "${cleaned}" saved to Top 10 & Report Card!`;
+          }
+        }
+        if (leaderboardNameFeedback) {
+          leaderboardNameFeedback.textContent = `✓ Saved "${cleaned}" to the Top 10 Score Sheet!`;
+        }
+      }
+      updateTierButtonsUI(engine.currentTier.id);
+      return cleaned;
+    }
 
     function renderLeaderboardModal(tierFilter = activeLeaderboardFilter) {
       activeLeaderboardFilter = tierFilter || 'all';
       if (!leaderboard || !leaderboardTableBody) return;
+      if (leaderboardPlayerNameInput && typeof leaderboard.getPlayerName === 'function') {
+        const saved = leaderboard.getPlayerName();
+        if (document.activeElement !== leaderboardPlayerNameInput && saved) {
+          leaderboardPlayerNameInput.value = saved;
+        }
+      }
       const rows = leaderboard.getTop10(activeLeaderboardFilter);
       leaderboardTableBody.innerHTML = rows.map((row, idx) => {
         const isHighlighted = (row.id === lastAddedScoreId) || row.isPlayer;
@@ -588,6 +723,9 @@
     }
 
     function openLeaderboardModal(tierFilter = 'all') {
+      if (playerNameInput && playerNameInput.value && playerNameInput.value.trim() && playerNameInput.value.trim() !== 'Lab Tester') {
+        saveAndSyncPlayerName(playerNameInput.value.trim(), false);
+      }
       renderLeaderboardModal(tierFilter);
       if (leaderboardModal) {
         if (leaderboardModal.classList) {
@@ -637,9 +775,10 @@
       btnShareLeaderboardX.addEventListener('click', (e) => {
         e.preventDefault();
         const topList = leaderboard.getTop10(activeLeaderboardFilter);
-        const topRow = topList[0] || { deviceModel: 'iPhone Duo', snapTime: 6.42, peakCps: 15.4, maxBendAngle: 38, grade: 'S' };
+        const topRow = topList[0] || { deviceModel: 'iPhone Duo', snapTime: 6.42, peakCps: 15.4, maxBendAngle: 38, grade: 'S', name: leaderboard.getPlayerName() };
         ui.openTwitterShare({
           survived: false,
+          playerName: topRow.name || leaderboard.getPlayerName(),
           deviceModel: topRow.deviceModel,
           deviceBrand: topRow.tierId === 'titanium' ? 'Samsung' : (topRow.tierId === 'pixel' ? 'Google' : (topRow.tierId === 'trifold' ? 'Huawei' : 'Apple')),
           snapTime: Number(topRow.snapTime).toFixed(2),
@@ -660,32 +799,52 @@
         });
       });
     }
+    if (playerNameInput && leaderboard) {
+      playerNameInput.addEventListener('input', () => {
+        if (btnSaveScore) {
+          btnSaveScore.disabled = false;
+          btnSaveScore.textContent = 'Save to Top 10';
+        }
+        const val = playerNameInput.value ? playerNameInput.value.trim() : '';
+        if (val) {
+          saveAndSyncPlayerName(val, false);
+        }
+      });
+      playerNameInput.addEventListener('change', () => {
+        const val = playerNameInput.value ? playerNameInput.value.trim() : 'Lab Tester';
+        saveAndSyncPlayerName(val, true);
+      });
+    }
     if (btnSaveScore && leaderboard) {
       btnSaveScore.addEventListener('click', (e) => {
         e.preventDefault();
-        const reportData = engine.getReportCardData();
-        if (reportData.survived || !reportData.snapTime) return;
         const playerName = (playerNameInput && playerNameInput.value) ? playerNameInput.value : 'Lab Tester';
-        const res = leaderboard.addScore({
-          name: playerName,
-          tierId: reportData.tierId,
-          deviceModel: reportData.deviceModel,
-          snapTime: parseFloat(reportData.snapTime),
-          peakCps: parseFloat(reportData.peakCps),
-          maxBendAngle: reportData.maxBendAngle,
-          grade: reportData.grade
-        });
-        if (res && res.entry) {
-          lastAddedScoreId = res.entry.id;
-          btnSaveScore.disabled = true;
-          btnSaveScore.textContent = 'Saved ✓';
-          if (scoreSubmitFeedback) {
-            scoreSubmitFeedback.textContent = res.madeTop10
-              ? `🎉 Ranked #${res.rank} Overall (#${res.tierRank || 1} on ${reportData.deviceModel}) in the Top 10 High Scores!`
-              : `Score logged (#${res.tierRank || 1} on ${reportData.deviceModel})! Click "Top 10 High Scores" to view.`;
-          }
-          updateTierButtonsUI(engine.currentTier.id);
+        saveAndSyncPlayerName(playerName, true);
+        renderLeaderboardModal(activeLeaderboardFilter);
+      });
+    }
+    if (leaderboardPlayerNameInput && leaderboard) {
+      leaderboardPlayerNameInput.addEventListener('input', () => {
+        const val = leaderboardPlayerNameInput.value ? leaderboardPlayerNameInput.value.trim() : '';
+        if (val) {
+          saveAndSyncPlayerName(val, false);
+          renderLeaderboardModal(activeLeaderboardFilter);
         }
+      });
+      leaderboardPlayerNameInput.addEventListener('change', () => {
+        const val = leaderboardPlayerNameInput.value ? leaderboardPlayerNameInput.value.trim() : 'Lab Tester';
+        saveAndSyncPlayerName(val, true);
+        renderLeaderboardModal(activeLeaderboardFilter);
+      });
+    }
+    if (btnUpdateLeaderboardName && leaderboard) {
+      btnUpdateLeaderboardName.addEventListener('click', (e) => {
+        e.preventDefault();
+        const raw = (leaderboardPlayerNameInput && leaderboardPlayerNameInput.value)
+          ? leaderboardPlayerNameInput.value
+          : 'Lab Tester';
+        saveAndSyncPlayerName(raw, true);
+        renderLeaderboardModal(activeLeaderboardFilter);
       });
     }
 
@@ -747,28 +906,37 @@
       });
     }
 
-    // Report Card Action Buttons
+    // Report Card Action Buttons (default onclick handlers; ui.showReportCard refreshes onclick with live metrics)
     if (btnDownloadCard) {
-      btnDownloadCard.addEventListener('click', (e) => {
-        e.preventDefault();
+      btnDownloadCard.onclick = (e) => {
+        if (e && typeof e.preventDefault === 'function') e.preventDefault();
         if (ui && typeof ui.renderReportCardCanvas === 'function' && typeof ui.downloadReportPng === 'function') {
           const metrics = engine.getReportCardData();
+          const typedName = (playerNameInput && playerNameInput.value && playerNameInput.value.trim())
+            ? saveAndSyncPlayerName(playerNameInput.value.trim(), false)
+            : (leaderboard && typeof leaderboard.getPlayerName === 'function' ? leaderboard.getPlayerName() : 'Lab Tester');
+          metrics.playerName = typedName;
           const offscreenCanvas = ui.renderReportCardCanvas(metrics);
           ui.downloadReportPng(offscreenCanvas, metrics);
         }
-      });
+      };
     }
 
     if (btnShareX) {
-      btnShareX.addEventListener('click', (e) => {
-        e.preventDefault();
+      btnShareX.onclick = (e) => {
+        if (e && typeof e.preventDefault === 'function') e.preventDefault();
+        const metrics = engine.getReportCardData();
+        const typedName = (playerNameInput && playerNameInput.value && playerNameInput.value.trim())
+          ? saveAndSyncPlayerName(playerNameInput.value.trim(), false)
+          : (leaderboard && typeof leaderboard.getPlayerName === 'function' ? leaderboard.getPlayerName() : 'Lab Tester');
+        metrics.playerName = typedName;
         if (ui && typeof ui.openTwitterShare === 'function') {
-          ui.openTwitterShare(engine.getReportCardData());
+          ui.openTwitterShare(metrics);
         } else {
           const shareUrl = engine.getShareUrl();
           window.open(shareUrl, '_blank', 'noopener,noreferrer');
         }
-      });
+      };
     }
 
     if (btnRetry) {

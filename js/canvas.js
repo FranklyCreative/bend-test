@@ -2705,18 +2705,22 @@
         ctx.restore();
       }
 
+      const tierObj = (snapshot && snapshot.tier) ? snapshot.tier : { id: 'standard', deviceModel: 'iPhone Duo' };
+      const handsetName = String(snapshot && snapshot.deviceModel ? snapshot.deviceModel : (tierObj.deviceModel || 'iPhone Duo')).toUpperCase();
+      const testerName = String(snapshot && snapshot.playerName ? snapshot.playerName : 'Lab Tester').trim() || 'Lab Tester';
+
       // Top Header Banner
       ctx.fillStyle = 'rgba(10, 16, 22, 0.90)';
       ctx.fillRect(0, 0, W, 84);
       ctx.fillStyle = '#f5a623';
       ctx.fillRect(0, 0, W, 5);
       ctx.fillStyle = '#ffffff';
-      ctx.font = '900 22px -apple-system, "SF Pro Display", sans-serif';
+      ctx.font = '900 20px -apple-system, "SF Pro Display", sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText('JERRYRIGEVERYTHING // BEND TEST: DUO vs FOLD 8', 40, 52);
+      ctx.fillText(`JERRYRIGEVERYTHING // ${handsetName} • TESTER: ${testerName}`, 40, 52);
 
       // Right Verdict Badge
-      ctx.font = '900 22px -apple-system, "SF Pro Display", sans-serif';
+      ctx.font = '900 20px -apple-system, "SF Pro Display", sans-serif';
       ctx.textAlign = 'right';
       if (!survived) {
         ctx.fillStyle = '#ff3b30';
@@ -2738,23 +2742,31 @@
       const snapTime = snapshot && snapshot.snapTime ? `${Number(snapshot.snapTime).toFixed(2)}s` : '25.00s';
       const peakCps = snapshot && snapshot.peakCps ? `${Number(snapshot.peakCps).toFixed(1)} CPS` : '12.0 CPS';
       const maxAngle = snapshot && snapshot.bendAngleDeg ? `${Number(snapshot.bendAngleDeg).toFixed(1)}°` : `${bendAngle.toFixed(1)}°`;
-      const repairBill = !survived ? '$1,899 (Out-of-Warranty)' : '$0';
+      const tierMult = tierObj.id === 'trifold' ? 1.48 : (tierObj.id === 'titanium' ? 1.22 : (tierObj.id === 'pixel' ? 1.16 : (tierObj.id === 'dust' ? 1.08 : 1.0)));
+      const tapVar = ((snapshot && snapshot.totalTaps) || 0) * 3 + Math.round(((snapshot && snapshot.peakCps) || 0) * 6);
+      const computedBill = (snapshot && snapshot.billBreakdown && snapshot.billBreakdown.totalBill !== undefined)
+        ? snapshot.billBreakdown.totalBill
+        : ((snapshot && typeof snapshot.repairBill === 'number')
+            ? snapshot.repairBill
+            : (damagePct <= 0 ? 0 : Math.round((!survived ? 2098 : 350 + damagePct * 14.5) * tierMult + tapVar + (damagePct * 1.7))));
+      const repairBill = computedBill > 0 ? `$${Number(computedBill).toLocaleString('en-US')} (Out-of-Warranty)` : '$0 (Covered)';
 
       ctx.textAlign = 'left';
       ctx.font = 'bold 12px "SF Mono", monospace';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-      ctx.fillText('FAILURE TIME', 70, H - 76);
-      ctx.fillText('MAX BEND ANGLE', 240, H - 76);
-      ctx.fillText('PEAK SPEED', 440, H - 76);
-      ctx.fillText('ESTIMATED REPAIR BILL', 640, H - 76);
+      ctx.fillText('TESTER / @HANDLE', 64, H - 76);
+      ctx.fillText('FAILURE TIME', 255, H - 76);
+      ctx.fillText('MAX BEND / CPS', 415, H - 76);
+      ctx.fillText('ESTIMATED REPAIR BILL', 625, H - 76);
 
-      ctx.font = '900 20px -apple-system, sans-serif';
+      ctx.font = '900 18px -apple-system, sans-serif';
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillText(testerName.slice(0, 18), 64, H - 48);
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(snapTime, 70, H - 48);
-      ctx.fillText(maxAngle, 240, H - 48);
-      ctx.fillText(peakCps, 440, H - 48);
+      ctx.fillText(snapTime, 255, H - 48);
+      ctx.fillText(`${maxAngle} · ${peakCps}`, 415, H - 48);
       ctx.fillStyle = !survived ? '#ff3b30' : '#34c759';
-      ctx.fillText(repairBill, 640, H - 48);
+      ctx.fillText(repairBill, 625, H - 48);
 
       ctx.textAlign = 'right';
       ctx.font = 'bold 13px "SF Mono", monospace';

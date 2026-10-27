@@ -426,17 +426,29 @@
     if (!ctx) return canvas;
 
     const survived = metrics.survived !== undefined ? Boolean(metrics.survived) : false;
+    const damagePct = metrics.damagePct !== undefined ? Number(metrics.damagePct) : (survived ? 40 : 100);
     const snapTimeStr = metrics.snapTime ? `${metrics.snapTime}s` : `Survived (${Number(metrics.runDuration || 15).toFixed(1)}s)`;
-    const maxBendAngle = metrics.maxBendAngle !== undefined ? metrics.maxBendAngle : 90;
+    const maxBendAngle = metrics.maxBendAngle !== undefined ? metrics.maxBendAngle : 38;
     const peakCps = metrics.peakCps !== undefined ? metrics.peakCps : '0.0';
     const totalTaps = metrics.totalTaps !== undefined ? metrics.totalTaps : 0;
     const tierName = metrics.tierName || 'Standard iPhone Duo';
-    const bill = metrics.billBreakdown || calculateRepairBill(metrics.damagePct || (survived ? 40 : 100), survived);
+    const tierId = String(metrics.tierId || '').toLowerCase();
+    const rawNameFromDom = (typeof document !== 'undefined' && document.getElementById)
+      ? (document.getElementById('playerNameInput') && document.getElementById('playerNameInput').value)
+      : '';
+    const playerName = String(metrics.playerName || rawNameFromDom || 'Lab Tester').trim() || 'Lab Tester';
+
+    const isHuaweiCard = (tierId === 'trifold') || (metrics.deviceBrand === 'Huawei') || (tierName && tierName.toLowerCase().includes('mate xt'));
+    const isPixelCard = (tierId === 'pixel') || (metrics.deviceBrand === 'Google') || (tierName && tierName.toLowerCase().includes('pixel'));
+    const isSamsungCard = !isHuaweiCard && !isPixelCard && ((tierId === 'titanium') || (tierName && tierName.toLowerCase().includes('fold')) || (metrics.deviceBrand === 'Samsung'));
+    const isDustCard = (tierId === 'dust') || (tierName && tierName.toLowerCase().includes('dust'));
+
+    const bill = metrics.billBreakdown || calculateRepairBill(damagePct, survived);
     const gradeObj = calculateDurabilityGrade({
       survived,
       snapTime: metrics.snapTime,
       maxBendAngle,
-      damagePct: metrics.damagePct
+      damagePct
     });
     const grade = metrics.grade || gradeObj.grade;
     const verdict = metrics.verdict || gradeObj.verdict;
@@ -479,17 +491,22 @@
     ctx.fillStyle = '#F5A623';
     ctx.fillRect(0, 0, 1200, 8);
 
-    // 4. Header Bar
+    // 4. Header Bar (Shows Correct Handset & Tester Badge)
     ctx.font = 'bold 24px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#F5A623';
     ctx.textAlign = 'left';
     ctx.fillText('JERRYRIGEVERYTHING // DURABILITY REPORT CARD', 50, 52);
 
-    ctx.font = '600 18px monospace, monospace';
+    ctx.font = '600 17px monospace, monospace';
     ctx.fillStyle = '#94A3B8';
     ctx.textAlign = 'right';
-    const isSamsungCard = (metrics.tierId === 'titanium') || (tierName && tierName.toLowerCase().includes('fold')) || (metrics.deviceBrand === 'Samsung');
-    const cardDeviceLabel = isSamsungCard ? 'SAMSUNG GALAXY Z FOLD 8 [HARD]' : `iPHONE DUO [${tierName.toUpperCase()}]`;
+    const cardDeviceLabel = isHuaweiCard
+      ? 'HUAWEI MATE XT TRI-FOLD [BOSS]'
+      : (isPixelCard
+          ? 'GOOGLE PIXEL 10 PRO FOLD [EXPERT]'
+          : (isSamsungCard
+              ? 'SAMSUNG GALAXY Z FOLD 8 [HARD]'
+              : `iPHONE DUO [${tierName.toUpperCase()}]`));
     ctx.fillText(`DEVICE: ${cardDeviceLabel}`, 1150, 52);
     ctx.textAlign = 'left';
 
@@ -501,7 +518,7 @@
     ctx.lineTo(1150, 72);
     ctx.stroke();
 
-    // 5. Left Column: Schematic of the connected folding phone
+    // 5. Left Column: Dynamic Handset Schematic (Matches Handset Model, Bend Angle & Damage %)
     ctx.save();
     const phoneX = 80;
     const phoneY = 105;
@@ -509,78 +526,258 @@
     const phoneH = 340;
 
     // Phone container backing
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(phoneX, phoneY, phoneW, phoneH, 16);
     else ctx.fillRect(phoneX, phoneY, phoneW, phoneH);
     ctx.fill();
-
-    ctx.strokeStyle = 'rgba(148, 163, 184, 0.2)';
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
     ctx.stroke();
 
-    // A connected chassis with a visible central folding crease.
+    // Top telemetry badge inside schematic panel (Handset + Damage % + Bend °)
+    ctx.font = 'bold 12px monospace, monospace';
+    ctx.fillStyle = '#F5A623';
+    const modelShort = metrics.deviceModel || (isHuaweiCard ? 'Huawei Mate XT Tri-Fold' : (isPixelCard ? 'Google Pixel 10 Pro Fold' : (isSamsungCard ? 'Samsung Galaxy Z Fold 8' : (isDustCard ? 'iPhone Duo (Dust)' : 'iPhone Duo'))));
+    ctx.fillText(`HANDSET: ${modelShort.toUpperCase()}`, phoneX + 18, phoneY + 26);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = (!survived || damagePct >= 75) ? '#EF4444' : '#38BDF8';
+    ctx.fillText(`DAMAGE: ${Math.round(damagePct)}% • BEND: ${Math.round(maxBendAngle)}°`, phoneX + phoneW - 18, phoneY + 26);
+    ctx.textAlign = 'left';
+
+    // Render handset-specific bent silhouette centered in schematic box
     const centerX = phoneX + phoneW / 2;
-    const centerY = phoneY + phoneH / 2;
-    ctx.save();
-    ctx.translate(centerX, centerY);
-    ctx.fillStyle = '#1E293B';
-    ctx.strokeStyle = '#64748B';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(-150, -110, 300, 220, 16);
-    else ctx.rect(-150, -110, 300, 220);
-    ctx.fill();
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(245, 166, 35, 0.7)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, -110);
-    ctx.lineTo(0, 110);
-    ctx.stroke();
-    ctx.restore();
+    const centerY = phoneY + phoneH / 2 + 12;
+    const wingTilt = (Math.min(42, Math.max(0, Number(maxBendAngle) || 0)) / 38) * 0.26;
+    const wingCorner = isSamsungCard ? 6 : (isHuaweiCard ? 8 : 18);
+    const wingFill = isHuaweiCard ? '#3B1219' : (isPixelCard ? '#262B28' : (isSamsungCard ? '#1E2631' : '#1E293B'));
+    const wingStroke = isHuaweiCard ? '#D4AF37' : (isPixelCard ? '#8FA39A' : (isSamsungCard ? '#94A3B8' : '#CBD5E1'));
 
-    // OLED Green line of death down crease if damaged >= 50%
-    if (!survived || metrics.damagePct >= 50) {
+    const safeTranslate = (tx, ty) => { if (typeof ctx.translate === 'function') ctx.translate(tx, ty); };
+    const safeRotate = (ang) => { if (typeof ctx.rotate === 'function') ctx.rotate(ang); };
+    const safeCircle = (cx, cy, r) => {
+      if (typeof ctx.arc === 'function') {
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      } else if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(cx - r, cy - r, r * 2, r * 2, r);
+      } else if (typeof ctx.rect === 'function') {
+        ctx.rect(cx - r, cy - r, r * 2, r * 2);
+      }
+    };
+    const safeRect = (rx, ry, rw, rh, rad = 0) => {
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(rx, ry, rw, rh, rad);
+      } else if (typeof ctx.rect === 'function') {
+        ctx.rect(rx, ry, rw, rh);
+      }
+    };
+
+    if (isHuaweiCard) {
+      // Huawei Mate XT Tri-Fold: 3-panel Z-fold with 2 opposing gold hinges
+      const pW = 98;
+      const pH = 205;
+      // Left panel
+      ctx.save();
+      safeTranslate(centerX - 50, centerY);
+      safeRotate(-wingTilt);
+      ctx.fillStyle = wingFill;
+      ctx.strokeStyle = wingStroke;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(-pW, -pH / 2, pW, pH, wingCorner);
+      else ctx.rect(-pW, -pH / 2, pW, pH);
+      ctx.fill();
+      ctx.stroke();
+      // Octagonal gold camera island on Mate XT
+      ctx.fillStyle = '#18181B';
+      ctx.strokeStyle = '#D4AF37';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      safeCircle(-pW / 2, -42, 26);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // Center panel
+      ctx.save();
+      safeTranslate(centerX, centerY);
+      ctx.fillStyle = '#2A0D12';
+      ctx.strokeStyle = wingStroke;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      safeRect(-50, -pH / 2, 100, pH, 0);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // Right panel
+      ctx.save();
+      safeTranslate(centerX + 50, centerY);
+      safeRotate(wingTilt * 1.15);
+      ctx.fillStyle = wingFill;
+      ctx.strokeStyle = wingStroke;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(0, -pH / 2, pW, pH, wingCorner);
+      else ctx.rect(0, -pH / 2, pW, pH);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // Dual gold hinge spines
+      ctx.strokeStyle = '#F5A623';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(centerX - 50, centerY - pH / 2);
+      ctx.lineTo(centerX - 50, centerY + pH / 2);
+      ctx.moveTo(centerX + 50, centerY - pH / 2);
+      ctx.lineTo(centerX + 50, centerY + pH / 2);
+      ctx.stroke();
+    } else {
+      // Dual-wing foldable (iPhone Duo, Dust-Jammed, Samsung Fold 8, Pixel 10 Pro Fold)
+      const wW = 148;
+      const wH = 210;
+
+      // Left Wing (rotates upward/inward by -wingTilt)
+      ctx.save();
+      safeTranslate(centerX, centerY);
+      safeRotate(-wingTilt);
+      ctx.fillStyle = wingFill;
+      ctx.strokeStyle = wingStroke;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(-wW, -wH / 2, wW, wH, wingCorner);
+      else ctx.rect(-wW, -wH / 2, wW, wH);
+      ctx.fill();
+      ctx.stroke();
+
+      // Handset-specific rear camera module on Left Wing
+      if (isSamsungCard) {
+        // Samsung Galaxy Z Fold 8: Vertical triple-ring camera island
+        ctx.fillStyle = '#0F172A';
+        ctx.strokeStyle = '#94A3B8';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(-wW + 20, -wH / 2 + 18, 36, 98, 18);
+        else ctx.rect(-wW + 20, -wH / 2 + 18, 36, 98);
+        ctx.fill();
+        ctx.stroke();
+        [-wH / 2 + 38, -wH / 2 + 67, -wH / 2 + 96].forEach(cy => {
+          ctx.beginPath();
+          safeCircle(-wW + 38, cy, 10);
+          ctx.fillStyle = '#020617';
+          ctx.fill();
+          ctx.strokeStyle = '#CBD5E1';
+          ctx.stroke();
+        });
+      } else if (isPixelCard) {
+        // Google Pixel 10 Pro Fold: Horizontal aluminum camera visor bar + antenna seam
+        ctx.fillStyle = '#CBD5E1';
+        ctx.strokeStyle = '#64748B';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(-wW + 16, -wH / 2 + 22, wW - 32, 42, 12);
+        else ctx.rect(-wW + 16, -wH / 2 + 22, wW - 32, 42);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#090D16';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(-wW + 26, -wH / 2 + 30, wW - 56, 26, 13);
+        else ctx.rect(-wW + 26, -wH / 2 + 30, wW - 56, 26);
+        ctx.fill();
+      } else {
+        // Apple iPhone Duo (Standard & Dust): Sculpted square plateau + 2 diagonal/vertical sapphire lenses
+        ctx.fillStyle = '#334155';
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(-wW + 18, -wH / 2 + 18, 66, 68, 14);
+        else ctx.rect(-wW + 18, -wH / 2 + 18, 66, 68);
+        ctx.fill();
+        ctx.stroke();
+        [[-wW + 38, -wH / 2 + 38], [-wW + 64, -wH / 2 + 64]].forEach(([lx, ly]) => {
+          ctx.beginPath();
+          safeCircle(lx, ly, 12);
+          ctx.fillStyle = '#090D16';
+          ctx.fill();
+          ctx.strokeStyle = '#94A3B8';
+          ctx.stroke();
+        });
+      }
+      ctx.restore();
+
+      // Right Wing (rotates by +wingTilt)
+      ctx.save();
+      safeTranslate(centerX, centerY);
+      safeRotate(wingTilt);
+      ctx.fillStyle = wingFill;
+      ctx.strokeStyle = wingStroke;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(0, -wH / 2, wW, wH, wingCorner);
+      else ctx.rect(0, -wH / 2, wW, wH);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // Central Hinge Spine & Exposed Copper/Battery Internals when damaged
+      ctx.strokeStyle = 'rgba(245, 166, 35, 0.85)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY - 105);
+      ctx.lineTo(centerX, centerY + 105);
+      ctx.stroke();
+
+      if (isDustCard) {
+        // Coarse silica sand particles along the hinge spine
+        ctx.fillStyle = '#D97706';
+        for (let sy = -90; sy <= 90; sy += 15) {
+          ctx.fillRect(centerX - 6 + (sy % 5), centerY + sy, 4, 4);
+          ctx.fillRect(centerX + 3 - (sy % 4), centerY + sy + 6, 3, 3);
+        }
+      }
+    }
+
+    // OLED Green & Magenta lines down crease if damaged >= 50%
+    if (!survived || damagePct >= 50) {
       ctx.save();
       ctx.strokeStyle = '#00FF66';
-      ctx.lineWidth = 3;
+      ctx.lineWidth = damagePct >= 85 ? 3.5 : 2.5;
       ctx.shadowColor = '#00FF66';
       ctx.shadowBlur = 12;
       ctx.beginPath();
-      ctx.moveTo(centerX - 3, phoneY + 40);
-      ctx.lineTo(centerX - 3, phoneY + phoneH - 40);
+      ctx.moveTo(centerX - 3, phoneY + 46);
+      ctx.lineTo(centerX - 3, phoneY + phoneH - 36);
       ctx.stroke();
 
-      // Magenta companion artifact
       ctx.strokeStyle = '#FF0099';
       ctx.lineWidth = 2;
       ctx.shadowColor = '#FF0099';
       ctx.shadowBlur = 8;
       ctx.beginPath();
-      ctx.moveTo(centerX + 4, phoneY + 50);
-      ctx.lineTo(centerX + 4, phoneY + phoneH - 50);
+      ctx.moveTo(centerX + 4, phoneY + 54);
+      ctx.lineTo(centerX + 4, phoneY + phoneH - 44);
       ctx.stroke();
       ctx.restore();
     }
 
-    // Spiderweb glass cracks if damage >= 75%
-    if (!survived || metrics.damagePct >= 75) {
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+    // Proportional spiderweb glass cracks scaled by damagePct & totalTaps
+    if (!survived || damagePct >= 40) {
+      const crackCount = Math.min(10, Math.max(3, Math.round((damagePct - 30) / 8) + (totalTaps % 3)));
+      const crackRadius = 35 + (damagePct / 100) * 55;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.78)';
       ctx.lineWidth = 1.5;
-      const crackCenterY = centerY + 10;
+      const crackCenterY = centerY + 6;
       ctx.beginPath();
-      ctx.moveTo(centerX, crackCenterY);
-      ctx.lineTo(centerX - 60, crackCenterY - 45);
-      ctx.moveTo(centerX, crackCenterY);
-      ctx.lineTo(centerX + 70, crackCenterY - 30);
-      ctx.moveTo(centerX, crackCenterY);
-      ctx.lineTo(centerX - 50, crackCenterY + 55);
-      ctx.moveTo(centerX, crackCenterY);
-      ctx.lineTo(centerX + 65, crackCenterY + 40);
+      for (let c = 0; c < crackCount; c++) {
+        const ang = (c / crackCount) * Math.PI * 2 + 0.35;
+        const r = crackRadius * (0.68 + ((c * 17 + totalTaps) % 7) * 0.06);
+        ctx.moveTo(centerX, crackCenterY);
+        ctx.lineTo(centerX + Math.cos(ang) * r, crackCenterY + Math.sin(ang) * (r * 0.75));
+      }
       ctx.stroke();
     }
 
-    // Zack Nelson quote box below phone schematic
+    // Zack Nelson quote & Tester attribution box below phone schematic
     ctx.fillStyle = 'rgba(15, 23, 42, 0.90)';
     ctx.strokeStyle = '#F5A623';
     ctx.lineWidth = 1.5;
@@ -590,11 +787,11 @@
     ctx.fill();
     ctx.stroke();
 
-    ctx.font = 'bold 15px system-ui, sans-serif';
+    ctx.font = 'bold 14px system-ui, sans-serif';
     ctx.fillStyle = '#F5A623';
-    ctx.fillText('[JerryRigEverything]:', phoneX + 20, 495);
+    ctx.fillText(`[JerryRigEverything] • TESTER: ${playerName}`, phoneX + 20, 495);
 
-    ctx.font = 'italic 17px system-ui, sans-serif';
+    ctx.font = 'italic 16px system-ui, sans-serif';
     ctx.fillStyle = '#F8FAFC';
     const quoteText = !survived ? '"Glass is glass, and glass breaks."' : '"A little flex in the chassis, but it held together."';
     ctx.fillText(quoteText, phoneX + 20, 525);
@@ -622,16 +819,16 @@
     ctx.fillStyle = '#FFFFFF';
     ctx.fillText(verdict, rightX + 135, 142);
 
-    ctx.font = '500 17px system-ui, -apple-system, sans-serif';
+    ctx.font = '500 16px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#94A3B8';
-    ctx.fillText(survived ? 'Survived bend test with structural resistance' : 'Display failed; chassis remains connected', rightX + 135, 178);
+    ctx.fillText(`${survived ? 'Survived bend test' : 'Display failed'} • Tested by ${playerName}`, rightX + 135, 178);
 
-    // Metrics Table Rows
+    // Metrics Table Rows (Includes Tester, Handset Damage %, Bend Angle, CPS, and Taps)
     const metricsData = [
+      { label: 'Lab Tester / @Handle:', val: playerName },
       { label: 'Time to Failure / Duration:', val: snapTimeStr },
-      { label: 'Maximum Bend Angle:', val: `${Math.round(maxBendAngle)}°` },
-      { label: 'Peak Mash Speed:', val: `${peakCps} CPS` },
-      { label: 'Total Mash Inputs:', val: `${totalTaps} taps` }
+      { label: 'Structural Damage & Max Bend:', val: `${Math.round(damagePct)}% (${Math.round(maxBendAngle)}°)` },
+      { label: 'Peak Speed & Total Inputs:', val: `${peakCps} CPS (${totalTaps} taps)` }
     ];
 
     let rowY = 245;
@@ -649,7 +846,7 @@
       rowY += 34;
     });
 
-    // Itemized Apple Repair Bill Box
+    // Itemized Out-of-Warranty Repair Bill Box (Matches Handset Brand & Dynamic Damage Amount)
     const billBoxY = 385;
     const billBoxH = 165;
     ctx.fillStyle = 'rgba(239, 68, 68, 0.10)';
@@ -661,9 +858,13 @@
     ctx.fill();
     ctx.stroke();
 
+    const invoiceBrandUpper = isHuaweiCard ? 'HUAWEI' : (isPixelCard ? 'GOOGLE' : (isSamsungCard ? 'SAMSUNG' : 'APPLE'));
+    const carePlanLabel = isHuaweiCard ? 'Huawei Care+' : (isPixelCard ? 'Google Preferred Care' : (isSamsungCard ? 'Samsung Care+' : 'AppleCare+'));
+    const hashtagDevice = isHuaweiCard ? 'MateXTTriFold' : (isPixelCard ? 'Pixel10ProFold' : (isSamsungCard ? 'GalaxyZFold8' : 'iPhoneDuo'));
+
     ctx.font = 'bold 15px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#FCA5A5';
-    ctx.fillText(`ESTIMATED ${isSamsungCard ? 'SAMSUNG' : 'APPLE'} OUT-OF-WARRANTY REPAIR INVOICE:`, rightX + 24, billBoxY + 32);
+    ctx.fillText(`ESTIMATED ${invoiceBrandUpper} OUT-OF-WARRANTY REPAIR INVOICE:`, rightX + 24, billBoxY + 32);
 
     ctx.font = 'bold 44px monospace, monospace';
     ctx.fillStyle = '#EF4444';
@@ -677,7 +878,7 @@
 
     ctx.font = 'italic 13px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#94A3B8';
-    ctx.fillText(`* ${isSamsungCard ? 'Samsung Care+' : 'AppleCare+'} does not cover intentional bend tests.`, rightX + 24, billBoxY + 144);
+    ctx.fillText(`* ${carePlanLabel} does not cover intentional bend tests (${Math.round(damagePct)}% chassis damage).`, rightX + 24, billBoxY + 144);
 
     // 6B. Force & Damage Telemetry Oscillograph Sparkline (top-right of Invoice Box)
     const telemetry = Array.isArray(metrics.telemetryHistory) ? metrics.telemetryHistory : [];
@@ -731,7 +932,7 @@
 
     ctx.font = '600 15px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#64748B';
-    ctx.fillText(`TESTED AT: franklycreative.github.io/bend-test/   •   #${isSamsungCard ? 'GalaxyZFold8' : 'iPhoneDuo'}BendTest`, 50, 613);
+    ctx.fillText(`TESTED AT: franklycreative.github.io/bend-test/   •   #${hashtagDevice}BendTest`, 50, 613);
 
     ctx.textAlign = 'right';
     ctx.fillText('JERRYRIGEVERYTHING DURABILITY ARCADE', 1150, 613);
@@ -750,9 +951,12 @@
   function downloadReportPng(canvas, metrics = {}) {
     if (!canvas) return;
 
-    const tierClean = (metrics.tierName || 'iPhone-Duo').replace(/\s+/g, '-');
+    const deviceClean = String(metrics.deviceModel || metrics.tierName || 'iPhone-Duo').replace(/[^a-zA-Z0-9_-]+/g, '-');
+    const testerClean = String(metrics.playerName || '').replace(/[^a-zA-Z0-9_-]+/g, '-');
     const grade = metrics.grade || 'Result';
-    const filename = `iPhone-Duo-Durability-Report-${tierClean}-${grade}.png`;
+    const filename = testerClean
+      ? `${deviceClean}-Report-${testerClean}-${grade}.png`
+      : `iPhone-Duo-Durability-Report-${deviceClean}-${grade}.png`;
 
     if (typeof canvas.toBlob === 'function') {
       canvas.toBlob(blob => {
@@ -942,23 +1146,41 @@
     setText('report-bill-frame', `$${bill.frameAlignment.toLocaleString('en-US')}`);
     setText('report-bill-battery', `$${bill.batteryHazard.toLocaleString('en-US')}`);
 
-    // Generate high-res canvas card
-    const offscreenCanvas = renderReportCardCanvas(metrics);
+    const getLiveMetricsWithPlayer = () => {
+      const nameEl = document.getElementById('playerNameInput');
+      const liveName = (nameEl && typeof nameEl.value === 'string' && nameEl.value.trim())
+        ? nameEl.value.trim()
+        : (metrics.playerName || 'Lab Tester');
+      if (typeof options.onSyncPlayerName === 'function') {
+        options.onSyncPlayerName(liveName);
+      }
+      return Object.assign({}, metrics, { playerName: liveName });
+    };
 
-    // Wire Download PNG button
+    const initialMetrics = getLiveMetricsWithPlayer();
+    setText('reportSub', `Tested by ${initialMetrics.playerName} • ${initialMetrics.deviceModel || initialMetrics.tierName || 'iPhone Duo'} (${Math.round(initialMetrics.damagePct || 0)}% Damage)`);
+
+    // Wire Download PNG button (always renders fresh card with current player name & handset)
     const downloadBtn = document.getElementById('btn-download-png') ||
                         document.getElementById('btn-report-download') ||
                         document.querySelector('.btn-download-png');
     if (downloadBtn) {
-      downloadBtn.onclick = () => downloadReportPng(offscreenCanvas, metrics);
+      downloadBtn.onclick = () => {
+        const liveMetrics = getLiveMetricsWithPlayer();
+        const freshCanvas = renderReportCardCanvas(liveMetrics);
+        downloadReportPng(freshCanvas, liveMetrics);
+      };
     }
 
-    // Wire Share on X button
+    // Wire Share on X button (always includes current player name & handset)
     const shareBtn = document.getElementById('btn-share-x') ||
                      document.getElementById('btn-report-share') ||
                      document.querySelector('.btn-share-x');
     if (shareBtn) {
-      shareBtn.onclick = () => openTwitterShare(metrics);
+      shareBtn.onclick = () => {
+        const liveMetrics = getLiveMetricsWithPlayer();
+        openTwitterShare(liveMetrics);
+      };
     }
 
     const nextLevelBtn = document.getElementById('btnNextLevel');
@@ -1078,6 +1300,7 @@
   // =========================================================================
 
   const LEADERBOARD_KEY = 'bend-test.leaderboard.v1';
+  const PLAYER_NAME_KEY = 'bend-test.playerName.v1';
   const SEEDED_TOP_SCORES = [
     { id: 'seed-1', name: 'Zack (@ZacksJerryRig)', tierId: 'standard', deviceModel: 'iPhone Duo', snapTime: 6.42, peakCps: 15.4, maxBendAngle: 38, grade: 'S', isSeed: true },
     { id: 'seed-2', name: 'TwinThumbs_Pro', tierId: 'standard', deviceModel: 'iPhone Duo', snapTime: 7.85, peakCps: 13.8, maxBendAngle: 38, grade: 'A', isSeed: true },
@@ -1094,6 +1317,7 @@
   function createLeaderboard(storage) {
     let entries = SEEDED_TOP_SCORES.map(item => Object.assign({}, item));
     let canSave = true;
+    let savedPlayerName = 'Lab Tester';
 
     function sortEntries(list) {
       return list.slice().sort((a, b) => {
@@ -1102,8 +1326,23 @@
       });
     }
 
+    function persistEntries() {
+      if (!canSave || !storage) return false;
+      try {
+        storage.setItem(LEADERBOARD_KEY, JSON.stringify({ version: 1, entries }));
+        return true;
+      } catch (_) {
+        canSave = false;
+        return false;
+      }
+    }
+
     try {
       if (storage) {
+        const rawName = storage.getItem(PLAYER_NAME_KEY);
+        if (typeof rawName === 'string' && rawName.trim()) {
+          savedPlayerName = rawName.trim().slice(0, 28);
+        }
         const raw = storage.getItem(LEADERBOARD_KEY);
         if (raw !== null) {
           const parsed = JSON.parse(raw);
@@ -1128,6 +1367,22 @@
 
     entries = sortEntries(entries);
 
+    function setPlayerName(name) {
+      const clean = String(name || '').trim().slice(0, 28);
+      if (!clean) return savedPlayerName;
+      savedPlayerName = clean;
+      if (storage) {
+        try {
+          storage.setItem(PLAYER_NAME_KEY, savedPlayerName);
+        } catch (_) {}
+      }
+      return savedPlayerName;
+    }
+
+    function getPlayerName() {
+      return savedPlayerName || 'Lab Tester';
+    }
+
     function getTop10(tierFilter = 'all') {
       const filtered = (!tierFilter || tierFilter === 'all')
         ? entries
@@ -1135,35 +1390,54 @@
       return sortEntries(filtered).slice(0, 10);
     }
 
+    function updateEntryName(entryId, newName) {
+      const cleanName = setPlayerName(newName);
+      let target = entryId ? entries.find(e => e.id === entryId) : null;
+      if (!target) {
+        target = entries.find(e => e.isPlayer);
+      }
+      if (!target) {
+        return { entry: null, name: cleanName, saved: true };
+      }
+      target.name = cleanName;
+      const saved = persistEntries();
+      return { entry: target, name: cleanName, saved };
+    }
+
     function addScore(record = {}) {
       const snapTime = Number(record.snapTime);
       if (!Number.isFinite(snapTime) || snapTime <= 0 || snapTime > 3600) return null;
-      const cleanName = String(record.name || 'Lab Tester').trim().slice(0, 28) || 'Lab Tester';
-      const entry = {
-        id: 'run-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
-        name: cleanName,
-        tierId: String(record.tierId || 'standard'),
-        deviceModel: String(record.deviceModel || 'iPhone Duo'),
-        snapTime: Number(snapTime.toFixed(2)),
-        peakCps: Number(Number(record.peakCps || 0).toFixed(1)),
-        maxBendAngle: Math.round(Number(record.maxBendAngle || 38)),
-        grade: String(record.grade || 'A'),
-        isPlayer: true
-      };
-      entries = sortEntries([entry].concat(entries)).slice(0, 30);
+      const cleanName = setPlayerName(record.name || savedPlayerName || 'Lab Tester');
+      let entry = record.id ? entries.find(e => e.id === record.id) : null;
+      if (entry) {
+        entry.name = cleanName;
+        entry.tierId = String(record.tierId || entry.tierId || 'standard');
+        entry.deviceModel = String(record.deviceModel || entry.deviceModel || 'iPhone Duo');
+        entry.snapTime = Number(snapTime.toFixed(2));
+        entry.peakCps = Number(Number(record.peakCps || entry.peakCps || 0).toFixed(1));
+        entry.maxBendAngle = Math.round(Number(record.maxBendAngle || entry.maxBendAngle || 38));
+        entry.grade = String(record.grade || entry.grade || 'A');
+        entry.isPlayer = true;
+        entries = sortEntries(entries).slice(0, 30);
+      } else {
+        entry = {
+          id: record.id || ('run-' + Date.now() + '-' + Math.floor(Math.random() * 10000)),
+          name: cleanName,
+          tierId: String(record.tierId || 'standard'),
+          deviceModel: String(record.deviceModel || 'iPhone Duo'),
+          snapTime: Number(snapTime.toFixed(2)),
+          peakCps: Number(Number(record.peakCps || 0).toFixed(1)),
+          maxBendAngle: Math.round(Number(record.maxBendAngle || 38)),
+          grade: String(record.grade || 'A'),
+          isPlayer: true
+        };
+        entries = sortEntries([entry].concat(entries)).slice(0, 30);
+      }
       const top10All = getTop10('all');
       const rankAll = top10All.findIndex(e => e.id === entry.id) + 1;
       const top10Tier = getTop10(entry.tierId);
       const rankTier = top10Tier.findIndex(e => e.id === entry.id) + 1;
-      let saved = false;
-      if (canSave && storage) {
-        try {
-          storage.setItem(LEADERBOARD_KEY, JSON.stringify({ version: 1, entries }));
-          saved = true;
-        } catch (_) {
-          canSave = false;
-        }
-      }
+      const saved = persistEntries();
       return {
         entry,
         rank: rankAll > 0 ? rankAll : null,
@@ -1176,6 +1450,9 @@
     return {
       getTop10,
       addScore,
+      updateEntryName,
+      getPlayerName,
+      setPlayerName,
       isPersistent: () => canSave
     };
   }

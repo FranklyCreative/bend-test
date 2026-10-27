@@ -29,7 +29,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23153e28'/%3E%3Cpath d='M20 12h10v40H20z' fill='%238a8e94'/%3E%3Cpath d='M34 12h10v40H34z' fill='%238a8e94'/%3E%3Crect x='30' y='16' width='4' height='32' rx='2' fill='%23c9a444'/%3E%3Cpath d='M32 20v24' stroke='%2300ff66' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
 
   <!-- Stylesheet (strictly relative ./) -->
-  <link rel="stylesheet" href="./styles.css?v=6">
+  <link rel="stylesheet" href="./styles.css?v=7">
 </head>
 <body>
   <div id="appContainer">
@@ -289,6 +289,15 @@
           <button id="btnCloseLeaderboard" class="btn-icon" aria-label="Close Top 10 High Scores">✕</button>
         </div>
 
+        <div class="score-submit-section" style="margin-bottom: 12px;">
+          <div class="score-submit-row">
+            <label for="leaderboardPlayerNameInput" class="score-submit-label">👤 Your Tester Name / @Handle:</label>
+            <input id="leaderboardPlayerNameInput" type="text" class="score-name-input" maxlength="24" placeholder="Your Name or @X_handle" value="Lab Tester">
+            <button id="btnUpdateLeaderboardName" type="button" class="btn-arcade btn-save-score">Save Name</button>
+          </div>
+          <p id="leaderboardNameFeedback" class="score-submit-feedback" aria-live="polite"></p>
+        </div>
+
         <div class="leaderboard-filter-bar" role="tablist" aria-label="Filter Top 10 by Phone Level">
           <button class="tier-btn active lb-filter-btn" data-lb-tier="all">All Phones</button>
           <button class="tier-btn lb-filter-btn" data-lb-tier="standard">L1: iPhone Duo</button>
@@ -326,10 +335,10 @@
   </div>
 
   <!-- Scripts: Strictly Relative ./ Paths (Zero External Bundlers or CDNs) -->
-  <script src="./js/engine.js?v=6"></script>
-  <script src="./js/canvas.js?v=6"></script>
-  <script src="./js/audio.js?v=6"></script>
-  <script src="./js/ui.js?v=6"></script>
-  <script src="./js/main.js?v=6"></script>
+  <script src="./js/engine.js?v=7"></script>
+  <script src="./js/canvas.js?v=7"></script>
+  <script src="./js/audio.js?v=7"></script>
+  <script src="./js/ui.js?v=7"></script>
+  <script src="./js/main.js?v=7"></script>
 </body>
 </html>

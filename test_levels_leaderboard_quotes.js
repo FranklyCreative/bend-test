@@ -104,4 +104,68 @@ assert.strictEqual(UI.getMedalForTime(8.5), '🥇', 'Sub-10s snap time must awar
 assert.strictEqual(UI.getMedalForTime(12.5), '🥈', 'Sub-15s snap time must award Silver Medal');
 assert.strictEqual(UI.getMedalForTime(19.0), '🥉', 'Sub-25s snap time must award Bronze Medal');
 
-console.log('All 5 foldable levels, Top 10 High Score Leaderboard, audible 5laDGy4INB0 quotes, and 10 gameplay/graphics improvements verified.');
+// 7. Verify Dynamic Repair Bill Amounts Across Runs & Handsets, Name Saving, and Input Guard
+engine.resetGame();
+engine.setTier('standard');
+engine.startActiveMashing();
+for (let i = 0; i < 40; i++) {
+  engine.registerTap(i % 2 === 0 ? 'left' : 'right');
+  engine.update(0.05);
+}
+engine.damage = 100;
+engine.survived = false;
+engine.snapTime = 7.42;
+const stdReport = engine.getReportCardData();
+
+engine.resetGame();
+engine.setTier('titanium');
+engine.triggerLabTool('scratch');
+engine.startActiveMashing();
+for (let i = 0; i < 75; i++) {
+  engine.registerTap(i % 2 === 0 ? 'left' : 'right');
+  engine.update(0.05);
+}
+engine.damage = 100;
+engine.survived = false;
+engine.snapTime = 8.95;
+const fold8Report = engine.getReportCardData();
+
+engine.resetGame();
+engine.setTier('trifold');
+engine.triggerLabTool('burn');
+engine.triggerLabTool('sand');
+engine.startActiveMashing();
+for (let i = 0; i < 110; i++) {
+  engine.registerTap(i % 2 === 0 ? 'left' : 'right');
+  engine.update(0.05);
+}
+engine.damage = 100;
+engine.survived = false;
+engine.snapTime = 11.20;
+const trifoldReport = engine.getReportCardData();
+
+assert.notStrictEqual(stdReport.billBreakdown.totalBill, fold8Report.billBreakdown.totalBill, 'Repair bill total must change dynamically across different runs and handsets');
+assert(trifoldReport.billBreakdown.totalBill > stdReport.billBreakdown.totalBill, 'Huawei Mate XT Tri-Fold catastrophic repair bill must exceed Standard iPhone Duo');
+
+// Verify player name persistence and in-place entry updates on Top 10 Leaderboard
+lb.setPlayerName('ChrisF');
+assert.strictEqual(lb.getPlayerName(), 'ChrisF', 'Leaderboard must persist player name in storage');
+const updatedEntry = lb.updateEntryName(addedFast.entry.id, '@ChrisFrank');
+assert(updatedEntry && updatedEntry.name === '@ChrisFrank', 'updateEntryName must update existing Top 10 entry in-place');
+assert.strictEqual(lb.getTop10('all')[0].name, '@ChrisFrank', 'Top 10 row #1 must reflect updated player name immediately');
+assert.strictEqual(lb.getPlayerName(), '@ChrisFrank', 'updateEntryName must also sync saved playerName');
+
+// Verify keyboard input guard does not hijack keystrokes inside <input> elements
+engine.resetGame();
+engine.startActiveMashing();
+const tapsBeforeInput = engine.totalTaps;
+const handledInInput = engine.handleKeyDown({
+  code: 'KeyA',
+  repeat: false,
+  target: { tagName: 'INPUT' },
+  preventDefault: () => {}
+});
+assert.strictEqual(handledInInput, false, 'engine.handleKeyDown must ignore keystrokes inside <input> elements');
+assert.strictEqual(engine.totalTaps, tapsBeforeInput, 'Typing inside <input> must not register game taps');
+
+console.log('All 5 foldable levels, Top 10 High Score Leaderboard, audible 5laDGy4INB0 quotes, dynamic cards, and 10 gameplay/graphics improvements verified.');
