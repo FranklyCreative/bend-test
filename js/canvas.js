@@ -431,6 +431,10 @@
       this.tapPump = 0.0;
       this._lastTotalTaps = 0;
       this.lastActiveHand = null;
+      this._leftGripStrain = 0;
+      this._rightGripStrain = 0;
+      this._gripTrembleX = 0;
+      this._gripTrembleY = 0;
 
       // Current frame bend kinematics shared between phone and hands
       this._currentWingAngle = 0.04;
@@ -707,7 +711,16 @@
             // Small pebble / coarse dirt grain
             const pw = 2.8 + (g % 3) * 1.1;
             const ph = 2.2 + (g % 2) * 1.0;
-            ctx.fillRect(gx, gy, pw, ph);
+            ctx.fillStyle = 'rgba(46, 38, 27, 0.22)';
+            ctx.fillRect(gx + 0.9, gy + 1.0, pw, ph);
+            ctx.fillStyle = pal[g % pal.length];
+            ctx.beginPath();
+            ctx.moveTo(gx, gy + ph * 0.3);
+            ctx.lineTo(gx + pw * 0.62, gy);
+            ctx.lineTo(gx + pw, gy + ph * 0.68);
+            ctx.lineTo(gx + pw * 0.35, gy + ph);
+            ctx.closePath();
+            ctx.fill();
           } else {
             const sz = (g % 7 === 0) ? 2.3 : ((g % 3 === 0) ? 1.7 : 1.15);
             ctx.fillRect(gx, gy, sz, sz);
@@ -993,10 +1006,10 @@
      */
     _renderBackFingers(ctx, wingAngle, hingeY, hingeGap, strain) {
       const halfH = EDGE_RAIL_THICK / 2;
-      const trembleTime = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000.0;
-      const trembleMag = Math.pow(Math.min(1.0, strain || 0), 1.6) * 3.0;
-      const tx = Math.sin(trembleTime * 138.0) * trembleMag;
-      const ty = Math.cos(trembleTime * 154.0) * trembleMag;
+      const tx = this._gripTrembleX || 0;
+      const ty = this._gripTrembleY || 0;
+      const leftStrain = this._leftGripStrain || 0;
+      const rightStrain = this._rightGripStrain || 0;
 
       const bendRatio = Math.min(1.0, (this._currentBendDeg || 0) / 38.0);
       const lFlex = Math.min(1.35, (this.leftSqueeze || 0) * 0.85 + bendRatio * 0.75);
@@ -1074,7 +1087,7 @@
       ctx.fill();
 
       // Knuckle Blanching & Joint Crease on Left Index Finger
-      this._drawBlanchingPressureNode(ctx, -315, -36, 26, 14, Math.min(1.0, (strain || 0) + lFlex * 0.45));
+      this._drawBlanchingPressureNode(ctx, -315, -36, 26, 14, Math.min(1.0, leftStrain + lFlex * 0.45));
       ctx.strokeStyle = 'rgba(98, 46, 24, 0.52)';
       ctx.lineWidth = 2.2;
       ctx.beginPath();
@@ -1157,7 +1170,7 @@
       ctx.fill();
 
       // Knuckle Blanching & Joint Crease on Right Index Finger
-      this._drawBlanchingPressureNode(ctx, 315, -38, 26, 14, Math.min(1.0, (strain || 0) + rFlex * 0.45));
+      this._drawBlanchingPressureNode(ctx, 315, -38, 26, 14, Math.min(1.0, rightStrain + rFlex * 0.45));
       ctx.strokeStyle = 'rgba(98, 48, 26, 0.54)';
       ctx.lineWidth = 2.4;
       ctx.beginPath();
@@ -1239,6 +1252,34 @@
 
       this._drawEdgeWingDetails(ctx, 'right', damagePct, isReverse, wingAngle);
       ctx.restore();
+
+      // A short metal knuckle bridges the lower edges even at maximum damage.
+      // Keep the V-shaped gap above it visible as the two halves rotate.
+      this._renderHingeBridge(ctx, hingeY, wingAngle);
+    }
+
+    /** Draw the fixed hinge pin across the lower corners of both wings. */
+    _renderHingeBridge(ctx, hingeY, wingAngle) {
+      const isSamsung = this._currentTierId === 'titanium';
+      const pinY = hingeY + EDGE_RAIL_THICK / 2 - 3.5;
+      const pinW = 8 + Math.sin(wingAngle) * 3;
+      ctx.save();
+      ctx.translate(0, pinY);
+      // Under-cut provides a small contact shadow, not a floating gap.
+      ctx.fillStyle = 'rgba(10, 12, 15, 0.65)';
+      ctx.beginPath(); ctx.roundRect(-pinW - 1, 0, pinW * 2 + 2, 5, 2); ctx.fill();
+      const pin = ctx.createLinearGradient(0, -3, 0, 4);
+      pin.addColorStop(0, isSamsung ? '#b7c2cb' : '#b9c1c8');
+      pin.addColorStop(0.45, isSamsung ? '#68727c' : '#242a30');
+      pin.addColorStop(1, isSamsung ? '#414950' : '#0f1114');
+      ctx.fillStyle = pin;
+      ctx.beginPath(); ctx.roundRect(-pinW, -3, pinW * 2, 5.5, 1.8); ctx.fill();
+      ctx.strokeStyle = 'rgba(241, 246, 249, 0.45)'; ctx.lineWidth = 0.7;
+      ctx.beginPath(); ctx.moveTo(-pinW + 1, -2); ctx.lineTo(pinW - 1, -2); ctx.stroke();
+      // Two dark joints read as moving knuckles rather than a split frame.
+      ctx.strokeStyle = 'rgba(18, 22, 27, 0.72)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-3, -1.5); ctx.lineTo(-3, 1.5); ctx.moveTo(3, -1.5); ctx.lineTo(3, 1.5); ctx.stroke();
+      ctx.restore();
     }
 
     /**
@@ -1273,12 +1314,9 @@
       // ---------------------------------------------------------------------
       if (hasWhiteCameraPlateau) {
         if (isSamsungFold) {
-          // SAMSUNG GALAXY Z FOLD 8: Squared metallic camera island + 3 individual protruding triple-lens rings!
-          const foldLenses = [
-            { u0: 192, u1: 236, depth: 7.5 },
-            { u0: 248, u1: 292, depth: 7.5 },
-            { u0: 304, u1: 346, depth: 7.5 }
-          ];
+          // The vertical camera stack overlaps in this edge-on projection.
+          // Only the nearest ring is visible along the horizontal rail.
+          const foldLenses = [{ u0: 285, u1: 331, depth: 7.5 }];
 
           // Matte Titanium-Charcoal Backglass Step (u = 48..354)
           const samBackGrad = ctx.createLinearGradient(0, halfH, 0, halfH + 8);
@@ -1293,17 +1331,17 @@
           ctx.closePath();
           ctx.fill();
 
-          // Elevated Vertical Camera Housing Island (u = 180..352)
-          const islandGrad = ctx.createLinearGradient(180, halfH + 6, 352, halfH + 14);
+          // Foreshortened camera stack occupies one lens-width in profile.
+          const islandGrad = ctx.createLinearGradient(278, halfH + 6, 337, halfH + 14);
           islandGrad.addColorStop(0, '#5a6270');
           islandGrad.addColorStop(0.5, '#2b3038');
           islandGrad.addColorStop(1, '#454c58');
           ctx.fillStyle = islandGrad;
           ctx.beginPath();
-          ctx.roundRect(182, halfH + 5.5, 170, 7.5, [0, 0, 4, 4]);
+          ctx.roundRect(278, halfH + 5.5, 59, 7.5, [0, 0, 4, 4]);
           ctx.fill();
 
-          // 3 Individual Protruding metallic Samsung camera rings with sapphire glass
+          // One projected metallic camera ring (the other lenses sit behind it).
           for (let i = 0; i < foldLenses.length; i++) {
             const ln = foldLenses[i];
             const w = ln.u1 - ln.u0;
@@ -1317,9 +1355,13 @@
             ctx.beginPath();
             ctx.roundRect(ln.u0 + 1, halfH + 13.0, w - 2, ln.depth - 1.2, [0, 0, 2, 2]);
             ctx.fill();
-            // Subtle cyan/violet anti-reflective lens coating glint
-            ctx.fillStyle = 'rgba(90, 175, 255, 0.45)';
-            ctx.fillRect(ln.u0 + 6, halfH + 15.0, w * 0.35, 1.8);
+            // Polished top bevel, narrow shadow and anti-reflective coating.
+            ctx.fillStyle = 'rgba(224, 231, 239, 0.38)';
+            ctx.fillRect(ln.u0, halfH + 12.5, w, 0.8);
+            ctx.fillStyle = 'rgba(90, 145, 195, 0.32)';
+            ctx.fillRect(ln.u0 + 6, halfH + 15.0, w * 0.35, 1.2);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+            ctx.fillRect(ln.u0 + 1, halfH + 12.8 + ln.depth, w - 2, 1.0);
           }
         } else {
           // IPHONE DUO: Dark protruding sapphire camera lens rings underneath the sculpted white ceramic plateau
@@ -1427,14 +1469,15 @@
       }
 
       // Longitudinal Specular Studio Softbox Reflection Streak along the rail
-      const streakGrad = ctx.createLinearGradient(15, 0, L - 25, 0);
-      streakGrad.addColorStop(0, 'rgba(255, 255, 255, 0.05)');
-      streakGrad.addColorStop(0.28, 'rgba(255, 255, 255, 0.28)');
-      streakGrad.addColorStop(0.55, 'rgba(255, 255, 255, 0.08)');
-      streakGrad.addColorStop(0.82, 'rgba(255, 255, 255, 0.22)');
-      streakGrad.addColorStop(1, 'rgba(255, 255, 255, 0.04)');
+      const reflectionShift = Math.sin(wingAngle) * (isLeft ? -0.12 : 0.12);
+      const streakGrad = ctx.createLinearGradient(10, 0, L - 14, 0);
+      streakGrad.addColorStop(0, 'rgba(255, 255, 255, 0.025)');
+      streakGrad.addColorStop(0.30 + reflectionShift, 'rgba(255, 255, 255, 0.22)');
+      streakGrad.addColorStop(0.58 + reflectionShift, 'rgba(255, 255, 255, 0.035)');
+      streakGrad.addColorStop(0.83 + reflectionShift, 'rgba(255, 255, 255, 0.15)');
+      streakGrad.addColorStop(1, 'rgba(255, 255, 255, 0.02)');
       ctx.fillStyle = streakGrad;
-      ctx.fillRect(10, -halfH + 3.2, L - 24, 2.6);
+      ctx.fillRect(10, -halfH + 3.2, L - 24, 1.4);
 
       // Bright Chrome Top Edge Highlight (Matches bright metallic line in photo)
       ctx.strokeStyle = '#ffffff';
@@ -1489,11 +1532,16 @@
           ctx.roundRect(140, -3.6, 58, 7.2, 3.6);
           ctx.fill();
           ctx.stroke();
+          ctx.fillStyle = 'rgba(195, 205, 215, 0.28)';
+          ctx.fillRect(146, -2.2, 46, 0.8);
+          ctx.fillStyle = '#121519';
 
           ctx.beginPath();
           ctx.roundRect(216, -3.6, 76, 7.2, 3.6);
           ctx.fill();
           ctx.stroke();
+          ctx.fillStyle = 'rgba(195, 205, 215, 0.28)';
+          ctx.fillRect(222, -2.2, 64, 0.8);
 
           ctx.fillStyle = '#050608';
           ctx.beginPath();
@@ -1588,31 +1636,41 @@
       ctx.closePath();
       ctx.fill();
 
-      // 3. Stage 3+ (damagePct >= 50%): Subtle OLED Glitch Glow Right Along the Top Edge
+      // An edge-on view reveals only a short sliver of the inner display.
+      // Its glow grows gradually with damage and stays attached to the crease.
       if (damagePct >= 50.0) {
+        const damageProgress = Math.min(1, (damagePct - 50) / 50);
+        const lineLength = 20 + damageProgress * 18;
         ctx.save();
         ctx.shadowColor = PALETTE.oledGreen;
-        ctx.shadowBlur = 4;
-        ctx.strokeStyle = PALETTE.oledGreen;
-        ctx.lineWidth = 1.2;
+        ctx.shadowBlur = 2 + damageProgress * 2;
+        ctx.strokeStyle = `rgba(69, 233, 113, ${0.35 + damageProgress * 0.25})`;
+        ctx.lineWidth = 0.8;
         ctx.beginPath();
-        ctx.moveTo(-95 * Math.cos(wingAngle), -halfH + Math.sin(wingAngle) * 95 - 1);
+        ctx.moveTo(-lineLength * Math.cos(wingAngle), -halfH + Math.sin(wingAngle) * lineLength - 1);
         ctx.lineTo(-topSpread, -halfH - 1);
         ctx.moveTo(topSpread, -halfH - 1);
-        ctx.lineTo(95 * Math.cos(wingAngle), -halfH + Math.sin(wingAngle) * 95 - 1);
+        ctx.lineTo(lineLength * Math.cos(wingAngle), -halfH + Math.sin(wingAngle) * lineLength - 1);
         ctx.stroke();
         ctx.restore();
       }
 
-      // 4. Stage 4+ (damagePct >= 75%): Buckling UTG Glass Layer & Micro-Shards at Hinge Apex
+      // A shallow lifted glass lip and fine fissures appear only after fracture.
       if (damagePct >= 75.0) {
-        const buckleH = 8 + ((damagePct - 75) / 25) * 14;
+        const fracture = Math.min(1, (damagePct - 75) / 25);
+        const buckleH = 2.2 + fracture * 3.0;
         ctx.save();
-        ctx.strokeStyle = 'rgba(240, 248, 255, 0.90)';
-        ctx.lineWidth = 2.0;
+        ctx.strokeStyle = 'rgba(226, 235, 240, 0.65)';
+        ctx.lineWidth = 0.9;
         ctx.beginPath();
-        ctx.moveTo(-65 * Math.cos(wingAngle), -halfH + Math.sin(wingAngle) * 65 - 1);
-        ctx.quadraticCurveTo(0, -halfH - buckleH, 65 * Math.cos(wingAngle), -halfH + Math.sin(wingAngle) * 65 - 1);
+        ctx.moveTo(-42 * Math.cos(wingAngle), -halfH + Math.sin(wingAngle) * 42 - 1);
+        ctx.quadraticCurveTo(0, -halfH - buckleH, 42 * Math.cos(wingAngle), -halfH + Math.sin(wingAngle) * 42 - 1);
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(230, 238, 240, 0.55)';
+        ctx.lineWidth = 0.65;
+        ctx.beginPath();
+        ctx.moveTo(-11, -halfH - 0.5); ctx.lineTo(-17, -halfH - 4); ctx.lineTo(-23, -halfH - 3);
+        ctx.moveTo(9, -halfH - 0.5); ctx.lineTo(14, -halfH - 5); ctx.lineTo(21, -halfH - 3);
         ctx.stroke();
         ctx.restore();
       }
@@ -1624,40 +1682,44 @@
     // 4.7 PASS 7: FIRST-PERSON HANDS, PROPORTIONAL THUMBS & BLANCHING
     // =======================================================================
 
-    _renderHands(ctx, strain, activeHand, dt) {
-      this._currentStrain = strain || 0;
-
-      // 1. High-Frequency Muscle Strain Trembling (22Hz)
-      const trembleMag = Math.pow(Math.min(1.0, strain || 0), 1.6) * 3.8;
-      const trembleTime = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000.0;
-      const trembleX = Math.sin(trembleTime * 138.0) * trembleMag;
-      const trembleY = Math.cos(trembleTime * 154.0) * trembleMag;
-
-      // 2. Micro-Squeeze Spring Update for Alternating Inputs
-      if (activeHand && activeHand !== this.lastActiveHand) {
-        if (activeHand === 'left') {
-          this.leftSqueeze = 1.0;
-          this.rightSqueeze = Math.max(this.rightSqueeze, 0.72);
-        } else if (activeHand === 'right') {
-          this.rightSqueeze = 1.0;
-          this.leftSqueeze = Math.max(this.leftSqueeze, 0.72);
-        }
-        this.lastActiveHand = activeHand;
-      }
+    // Update once per frame, before the rear fingers and foreground palms draw.
+    // A tap affects only its own hand; sustained pressure is read from the engine.
+    _updateGripAnimation(snapshot, dt) {
+      const idle = !snapshot || snapshot.state === 'IDLE_SELECT' || snapshot.state === 'COUNTDOWN';
+      const taps = snapshot ? (snapshot.totalTaps || 0) : 0;
       this.leftSqueeze = Math.max(0, this.leftSqueeze - 4.8 * dt);
       this.rightSqueeze = Math.max(0, this.rightSqueeze - 4.8 * dt);
       this.tapPump = Math.max(0, (this.tapPump || 0) - 5.2 * dt);
+      this._leftGripStrain = snapshot ? Math.max(0, Math.min(1, snapshot.leftThumbStrain || 0)) : 0;
+      this._rightGripStrain = snapshot ? Math.max(0, Math.min(1, snapshot.rightThumbStrain || 0)) : 0;
+      if (idle) {
+        this._lastTotalTaps = 0;
+        this.leftSqueeze = 0;
+        this.rightSqueeze = 0;
+        this.tapPump = 0;
+      } else if (taps > this._lastTotalTaps) {
+        this._lastTotalTaps = taps;
+        this.tapPump = 1.0;
+        if (snapshot.activeHand === 'right') this.rightSqueeze = 1.0;
+        else if (snapshot.activeHand === 'left') this.leftSqueeze = 1.0;
+      }
+      const force = Math.max(this._leftGripStrain, this._rightGripStrain);
+      const time = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+      const tremble = Math.pow(force, 1.6) * 1.6;
+      this._gripTrembleX = Math.sin(time * 138) * tremble;
+      this._gripTrembleY = Math.cos(time * 154) * tremble;
+    }
 
-      // --- LEFT HAND (Entering from Bottom-Left Corner) ---
+    _renderHands(ctx, strain, activeHand, dt) {
+      const tx = this._gripTrembleX || 0;
+      const ty = this._gripTrembleY || 0;
       ctx.save();
-      ctx.translate(trembleX, trembleY);
-      this._drawSingleHand(ctx, 'left', strain || 0, this.leftSqueeze);
+      ctx.translate(tx, ty);
+      this._drawSingleHand(ctx, 'left', this._leftGripStrain || 0, this.leftSqueeze);
       ctx.restore();
-
-      // --- RIGHT HAND (Entering from Bottom-Right Corner) ---
       ctx.save();
-      ctx.translate(-trembleX, trembleY);
-      this._drawSingleHand(ctx, 'right', strain || 0, this.rightSqueeze);
+      ctx.translate(-tx, ty);
+      this._drawSingleHand(ctx, 'right', this._rightGripStrain || 0, this.rightSqueeze);
       ctx.restore();
     }
 
@@ -1669,16 +1731,16 @@
      */
     _drawSingleHand(ctx, side, strain, squeeze) {
       const isLeft = (side === 'left');
-      const wingAngle = this._currentWingAngle || 0.04;
+      const wingAngle = this._currentWingAngle ?? 0.0;
       const hingeY = (typeof this._currentHingeY === 'number') ? this._currentHingeY : EDGE_BASE_Y;
       const hingeGap = this._currentHingeGap || 1.5;
       const halfH = EDGE_RAIL_THICK / 2;
 
       const bendRatio = Math.min(1.0, (this._currentBendDeg || 0) / 38.0);
-      const squeezeLift = squeeze * 11.5;
-      const ipFlex = squeeze * 12.0 + bendRatio * 16.0;
-      const palmInward = squeeze * 12.0 + bendRatio * 18.0;
-      const palmDrop = squeeze * 9.0 + bendRatio * 16.0;
+      const squeezeLift = squeeze * 3.8;
+      const ipFlex = squeeze * 7.0 + bendRatio * 14.0;
+      const palmInward = squeeze * 7.0 + bendRatio * 14.0;
+      const palmDrop = squeeze * 4.0 + bendRatio * 12.0;
 
       // Exact coordinates of the outer wing tip so the hand's outer knuckle
       // always wraps around the end of the phone wing at any bend angle!
@@ -1737,6 +1799,8 @@
         ctx.lineTo(-182, 430);
         ctx.closePath();
         ctx.fill();
+        ctx.save();
+        ctx.clip();
         this._shadeHandSurface(ctx, 'left', squeeze);
 
         ctx.shadowColor = 'transparent';
@@ -1764,39 +1828,21 @@
         ctx.quadraticCurveTo(-132 + ipFlex * 0.2, yOuter + 34, -56, yMid + 6);
         ctx.stroke();
 
-        // Subtle ambient occlusion shadow directly under the Left Thumb pad against the rail
-        ctx.strokeStyle = 'rgba(20, 12, 8, 0.52)';
-        ctx.lineWidth = 3.0;
-        ctx.beginPath();
-        ctx.moveTo(-84, yOuter + 1.5);
-        ctx.quadraticCurveTo(-48, yMid + 0.5, -11, yInner + 1.5);
-        ctx.stroke();
+        this._drawThumbContact(ctx, -1, yInner, yMid, yOuter, squeeze);
 
         // 3. Ischemic White-Knuckle Blanching on Left Thumb Tip & IP Knuckle
         const effLeftStrain = Math.min(1.0, strain + squeeze * 0.55);
         this._drawBlanchingPressureNode(ctx, -40, yMid + 16, 32, 16, effLeftStrain);
         this._drawBlanchingPressureNode(ctx, -95, yOuter + 52, 26, 20, effLeftStrain * 0.78);
 
-        // 4. Side-Profile Thumbnail & Cuticle on Upper-Left Edge of Left Thumb Tip
-        ctx.save();
-        ctx.translate(-52, yMid + 9);
-        ctx.rotate(-wingAngle - 0.12 - squeeze * 0.08);
-        ctx.fillStyle = PALETTE.nailBed;
-        ctx.beginPath();
-        ctx.roundRect(-22, -4, 34, 10, [4, 6, 4, 2]);
-        ctx.fill();
-        ctx.fillStyle = PALETTE.nailLunula;
-        ctx.beginPath();
-        ctx.ellipse(-14, 0, 4.5, 3.2, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+        // In this grip the thumbnail faces away and is obscured by the phone.
 
         // 5. Authentic Anatomical Skin Creases & Thumb IP Joint Wrinkles
-        ctx.strokeStyle = 'rgba(110, 52, 28, 0.55)';
+        ctx.strokeStyle = 'rgba(110, 52, 28, 0.31)';
         ctx.lineCap = 'round';
 
         const webY = Math.max(132, tipY + 78 + palmDrop * 0.4);
-        ctx.lineWidth = 2.4;
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(-262 + palmInward * 0.3, webY);
         ctx.quadraticCurveTo(-245, webY + 44, -225, webY + 95);
@@ -1807,7 +1853,7 @@
         ctx.stroke();
 
         // Transverse knuckle folds across the Left Thumb IP joint
-        ctx.lineWidth = 2.0 + squeeze * 0.6;
+        ctx.lineWidth = 1.3 + squeeze * 0.35;
         ctx.beginPath();
         ctx.moveTo(-122 + ipFlex * 0.2, yOuter + 34);
         ctx.quadraticCurveTo(-96, yOuter + 48, -74, yOuter + 68);
@@ -1835,6 +1881,7 @@
         ctx.arc(-458 + palmInward * 0.4, 378, 4.5, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
+        ctx.restore(); // hand silhouette clip
 
       } else {
         // ===================================================================
@@ -1879,6 +1926,8 @@
         ctx.lineTo(195, 430);
         ctx.closePath();
         ctx.fill();
+        ctx.save();
+        ctx.clip();
         this._shadeHandSurface(ctx, 'right', squeeze);
 
         ctx.shadowColor = 'transparent';
@@ -1906,35 +1955,21 @@
         ctx.quadraticCurveTo(132 - ipFlex * 0.2, yOuter + 30, 56, yMid + 5);
         ctx.stroke();
 
-        // Subtle ambient occlusion shadow directly under the Right Thumb pad against the rail
-        ctx.strokeStyle = 'rgba(20, 12, 8, 0.52)';
-        ctx.lineWidth = 3.0;
-        ctx.beginPath();
-        ctx.moveTo(84, yOuter + 1.5);
-        ctx.quadraticCurveTo(48, yMid + 0.5, 11, yInner + 1.5);
-        ctx.stroke();
+        this._drawThumbContact(ctx, 1, yInner, yMid, yOuter, squeeze);
 
         // 3. Ischemic White-Knuckle Blanching on Right Thumb Pad & Knuckle
         const effRightStrain = Math.min(1.0, strain + squeeze * 0.55);
         this._drawBlanchingPressureNode(ctx, 44, yMid + 18, 34, 17, effRightStrain);
         this._drawBlanchingPressureNode(ctx, 98, yOuter + 54, 26, 20, effRightStrain * 0.78);
 
-        // 4. Broad Flattened Thumbnail / Pad Plate on Right Thumb Tip (matching photo)
-        ctx.save();
-        ctx.translate(46, yMid + 15);
-        ctx.rotate(wingAngle + 0.12 + squeeze * 0.08);
-        ctx.fillStyle = 'rgba(238, 208, 192, 0.78)';
-        ctx.beginPath();
-        ctx.roundRect(-22, -9, 42, 20, 8);
-        ctx.fill();
-        ctx.restore();
+        // The thumbnail is hidden behind the rail in this edge-on view.
 
         // 5. Authentic Transverse Wrinkles on Right Thumb & Deep Palm Crease Lines
-        ctx.strokeStyle = 'rgba(88, 40, 20, 0.62)';
+        ctx.strokeStyle = 'rgba(88, 40, 20, 0.33)';
         ctx.lineCap = 'round';
 
         const rWebY = Math.max(118, tipY + 68 + palmDrop * 0.4);
-        ctx.lineWidth = 2.6;
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(332 - palmInward * 0.3, rWebY);
         ctx.quadraticCurveTo(272, rWebY + 4, 215, rWebY + 38);
@@ -1945,7 +1980,7 @@
         ctx.stroke();
 
         // Characteristic dark compressed skin folds under Right Thumb IP knuckle
-        ctx.lineWidth = 2.2 + squeeze * 0.6;
+        ctx.lineWidth = 1.3 + squeeze * 0.35;
         ctx.beginPath();
         ctx.moveTo(128 - ipFlex * 0.2, yOuter + 30);
         ctx.quadraticCurveTo(98, yOuter + 50, 72, yOuter + 72);
@@ -1954,8 +1989,28 @@
         ctx.moveTo(146 - ipFlex * 0.2, yOuter + 60);
         ctx.quadraticCurveTo(114, yOuter + 80, 88, yOuter + 100);
         ctx.stroke();
+        ctx.restore(); // hand silhouette clip
       }
 
+      ctx.restore();
+    }
+
+    _drawThumbContact(ctx, side, yInner, yMid, yOuter, squeeze) {
+      // Narrow contact shadow follows the rail and moving thumb pad.
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = `rgba(45,26,18,${0.25 + 0.10 * squeeze})`;
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(side * 84, yOuter + 2);
+      ctx.quadraticCurveTo(side * 48, yMid + 1, side * 11, yInner + 2);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,218,187,0.38)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(side * 75, yOuter + 6);
+      ctx.quadraticCurveTo(side * 44, yMid + 5, side * 18, yInner + 6);
+      ctx.stroke();
       ctx.restore();
     }
 
@@ -2147,20 +2202,9 @@
 
       // 1. Evaluate Tap Impulses & Stage Transitions for Finger Articulation & Particle Bursts
       if (snapshot) {
-        const curTaps = snapshot.totalTaps || 0;
+        this._updateGripAnimation(snapshot, dt);
         if (snapshot.state === 'IDLE_SELECT' || snapshot.state === 'COUNTDOWN') {
-          this._lastTotalTaps = 0;
           this._lastDamageStage = 1;
-        } else if (curTaps > this._lastTotalTaps) {
-          this._lastTotalTaps = curTaps;
-          this.tapPump = 1.0;
-          if (snapshot.activeHand === 'right') {
-            this.rightSqueeze = 1.0;
-            this.leftSqueeze = Math.max(this.leftSqueeze, 0.78);
-          } else {
-            this.leftSqueeze = 1.0;
-            this.rightSqueeze = Math.max(this.rightSqueeze, 0.78);
-          }
         }
 
         const curStage = snapshot.damageStage || 1;
@@ -2202,16 +2246,12 @@
       ctx.clearRect(0, 0, this.width, this.height);
 
       // Calculate Responsive Uniform Scale & Offset
+      // Fit the full grip and hinge within the canvas, including at narrow widths.
+      // The extra horizontal margin prevents the phone tips from touching the edge.
       const isPortrait = (this.width / this.height) < 1.15;
-      let S = 1.0;
-      let Tx = this.width / 2;
-      let Ty = this.height / 2;
-
-      if (isPortrait) {
-        S = this.width / 740;
-      } else {
-        S = Math.min(this.width / VIRTUAL_WIDTH, this.height / VIRTUAL_HEIGHT);
-      }
+      const S = Math.min(this.width / (isPortrait ? 860 : 1050), this.height / 800);
+      const Tx = this.width / 2;
+      const Ty = this.height / 2;
 
       ctx.save();
       ctx.translate(Tx + this.shakeX, Ty + this.shakeY);
@@ -2236,7 +2276,7 @@
       const damagePct = snapshot ? (snapshot.damagePct || 0) : 0;
       const currentForce = snapshot ? (snapshot.currentForce || 0) : 0;
       const orientation = snapshot ? (snapshot.orientation || 'REVERSE_BEND') : 'REVERSE_BEND';
-      const strain = snapshot ? (snapshot.leftThumbStrain || 0) : 0;
+      const strain = snapshot ? Math.max(snapshot.leftThumbStrain || 0, snapshot.rightThumbStrain || 0) : 0;
       const activeHand = snapshot ? snapshot.activeHand : null;
       const tierId = (snapshot && snapshot.tier && snapshot.tier.id) ? snapshot.tier.id : 'standard';
 
@@ -2291,20 +2331,36 @@
       }
 
       const bendAngle = snapshot && typeof snapshot.bendAngleDeg === 'number' ? snapshot.bendAngleDeg : 38.0;
-      const damagePct = snapshot ? (snapshot.damagePct || 100.0) : 100.0;
+      const damagePct = snapshot && Number.isFinite(snapshot.damagePct) ? snapshot.damagePct : 100.0;
       const survived = snapshot ? !!snapshot.survived : false;
 
-      this._currentDamagePct = damagePct;
-      this._currentStrain = 0.85;
-
-      this._renderPhoneFace('front', damagePct, 80.0);
-      this._renderPerspectivePhone(ctx, bendAngle, 'REVERSE_BEND');
-      this._renderHands(ctx, 0.85, 'left', 0.016);
-
-      this.particlePool.spawn('shard', 0, this._currentHingeY || -80, 20);
-      this.particlePool.spawn('spark', 0, this._currentHingeY || -80, 3);
-      this.particlePool.draw(ctx);
-      ctx.restore();
+      // An export is a separate scene: it must not modify live grip, kinematics,
+      // or the particle pool used by the next animation frame.
+      const saved = {};
+      const sceneKeys = ['_currentDamagePct', '_currentStrain', '_currentTierId',
+        '_currentWingAngle', '_currentHingeY', '_currentHingeGap', '_currentBendDeg',
+        '_currentOrientation', '_leftGripStrain', '_rightGripStrain', 'leftSqueeze',
+        'rightSqueeze', 'tapPump', '_gripTrembleX', '_gripTrembleY'];
+      for (const key of sceneKeys) saved[key] = this[key];
+      try {
+        this._currentDamagePct = damagePct;
+        this._currentStrain = 0.6;
+        this._currentTierId = snapshot && snapshot.tier ? snapshot.tier.id : 'standard';
+        this._leftGripStrain = this._rightGripStrain = 0.6;
+        this.leftSqueeze = this.rightSqueeze = 0.15;
+        this.tapPump = this._gripTrembleX = this._gripTrembleY = 0;
+        this._renderPhoneFace('front', damagePct, 80.0);
+        this._renderPerspectivePhone(ctx, bendAngle, 'REVERSE_BEND');
+        this._renderHands(ctx, 0.6, null, 0);
+        if (!survived && damagePct >= 75) {
+          const cardParticles = new ParticlePool(32);
+          cardParticles.spawn('shard', 0, this._currentHingeY || -80, 8);
+          cardParticles.draw(ctx);
+        }
+      } finally {
+        for (const key of sceneKeys) this[key] = saved[key];
+        ctx.restore();
+      }
 
       // Top Header Banner
       ctx.fillStyle = 'rgba(10, 16, 22, 0.90)';
@@ -2336,7 +2392,7 @@
       ctx.lineWidth = 1.2;
       ctx.stroke();
 
-      const snapTime = snapshot && snapshot.snapTime ? `${Number(snapshot.snapTime).toFixed(2)}s` : '15.00s';
+      const snapTime = snapshot && snapshot.snapTime ? `${Number(snapshot.snapTime).toFixed(2)}s` : '20.00s';
       const peakCps = snapshot && snapshot.peakCps ? `${Number(snapshot.peakCps).toFixed(1)} CPS` : '12.0 CPS';
       const maxAngle = snapshot && snapshot.bendAngleDeg ? `${Number(snapshot.bendAngleDeg).toFixed(1)}°` : `${bendAngle.toFixed(1)}°`;
       const repairBill = !survived ? '$1,899 (Out-of-Warranty)' : '$0';

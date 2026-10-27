@@ -492,6 +492,7 @@
 
     // Phone container backing
     ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+    ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(phoneX, phoneY, phoneW, phoneH, 16);
     else ctx.fillRect(phoneX, phoneY, phoneW, phoneH);
     ctx.fill();
@@ -565,6 +566,7 @@
     ctx.fillStyle = 'rgba(15, 23, 42, 0.90)';
     ctx.strokeStyle = '#F5A623';
     ctx.lineWidth = 1.5;
+    ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(phoneX, 465, phoneW, 85, 12);
     else ctx.fillRect(phoneX, 465, phoneW, 85);
     ctx.fill();
@@ -586,6 +588,7 @@
     // Durability Grade Badge
     const badgeColor = survived ? '#10B981' : '#EF4444';
     ctx.fillStyle = badgeColor;
+    ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(rightX, 105, 115, 100, 16);
     else ctx.fillRect(rightX, 105, 115, 100);
     ctx.fill();
@@ -634,6 +637,7 @@
     ctx.fillStyle = 'rgba(239, 68, 68, 0.10)';
     ctx.strokeStyle = 'rgba(239, 68, 68, 0.45)';
     ctx.lineWidth = 1.5;
+    ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(rightX, billBoxY, 580, billBoxH, 14);
     else ctx.fillRect(rightX, billBoxY, 580, billBoxH);
     ctx.fill();
@@ -641,7 +645,7 @@
 
     ctx.font = 'bold 15px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#FCA5A5';
-    ctx.fillText('ESTIMATED APPLE OUT-OF-WARRANTY REPAIR INVOICE:', rightX + 24, billBoxY + 32);
+    ctx.fillText(`ESTIMATED ${isSamsungCard ? 'SAMSUNG' : 'APPLE'} OUT-OF-WARRANTY REPAIR INVOICE:`, rightX + 24, billBoxY + 32);
 
     ctx.font = 'bold 44px monospace, monospace';
     ctx.fillStyle = '#EF4444';
@@ -650,12 +654,12 @@
     // Itemized breakdown line items
     ctx.font = '13px monospace, monospace';
     ctx.fillStyle = '#CBD5E1';
-    const breakdownText = `$1,499 Inner OLED • $299 Hinge • $199 Frame • $101 Battery Hazard`;
+    const breakdownText = `$${bill.innerDisplay || 0} Display • $${bill.hingeAssembly || 0} Hinge • $${bill.frameAlignment || 0} Frame • $${bill.batteryHazard || 0} Battery`;
     ctx.fillText(breakdownText, rightX + 24, billBoxY + 118);
 
     ctx.font = 'italic 13px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#94A3B8';
-    ctx.fillText('* AppleCare+ does not cover intentional JerryRigEverything bend tests.', rightX + 24, billBoxY + 144);
+    ctx.fillText(`* ${isSamsungCard ? 'Samsung Care+' : 'AppleCare+'} does not cover intentional bend tests.`, rightX + 24, billBoxY + 144);
 
     // 7. Footer Bar
     ctx.fillStyle = '#080E14';
@@ -663,7 +667,7 @@
 
     ctx.font = '600 15px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#64748B';
-    ctx.fillText('TESTED AT: www.frankonedigital.com/bend-test   •   #iPhoneDuoBendTest', 50, 613);
+    ctx.fillText(`TESTED AT: franklycreative.github.io/bend-test/   •   #${isSamsungCard ? 'GalaxyZFold8' : 'iPhoneDuo'}BendTest`, 50, 613);
 
     ctx.textAlign = 'right';
     ctx.fillText('JERRYRIGEVERYTHING DURABILITY ARCADE', 1150, 613);
