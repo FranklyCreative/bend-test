@@ -219,7 +219,8 @@
       this._stageChangeListeners = [];
 
       // Current difficulty tier
-      this.currentTier = DIFFICULTY_TIERS[this.options.defaultTier] || DIFFICULTY_TIERS.standard;
+      this.currentTier = Object.assign({}, DIFFICULTY_TIERS[this.options.defaultTier] || DIFFICULTY_TIERS.standard);
+      if (Number.isFinite(this.options.runDuration) && this.options.runDuration > 0) this.currentTier.runDuration = this.options.runDuration;
 
       // Primary state variables
       this.state = STATES.IDLE_SELECT;
@@ -390,14 +391,10 @@
         targetTier = DIFFICULTY_TIERS.standard;
       }
 
-      this.currentTier = targetTier;
-      this.timeRemaining = this.currentTier.runDuration;
-      this.totalDuration = this.currentTier.runDuration;
-
-      // If in idle state, refresh display
-      if (this.state === STATES.IDLE_SELECT) {
-        this.resetGame();
-      }
+      this.currentTier = Object.assign({}, targetTier);
+      if (Number.isFinite(this.options.runDuration) && this.options.runDuration > 0) this.currentTier.runDuration = this.options.runDuration;
+      // A new device starts a clean run, including during a round or report.
+      this.resetGame();
       return this.currentTier;
     }
 
@@ -412,6 +409,7 @@
       } else {
         this.currentTier = Object.assign({}, this.currentTier, DIFFICULTY_TIERS[tierId] || DIFFICULTY_TIERS.standard);
       }
+      if (Number.isFinite(this.options.runDuration) && this.options.runDuration > 0) this.currentTier.runDuration = this.options.runDuration;
       this.timeRemaining = this.currentTier.runDuration;
       this.totalDuration = this.currentTier.runDuration;
       return this.currentTier;
@@ -954,7 +952,7 @@
       this.survived = true;
       this.snapTime = null;
 
-      this.currentQuip = ZACK_QUIPS.survival;
+      this.currentQuip = `Remarkable. The ${this.currentTier.deviceModel || 'iPhone Duo'} survives the bend test... for now.`;
 
       this.dispatchAudio('SURVIVAL_BUZZER', { finalDamage: this.damage });
       this._triggerHaptic([150, 100, 150]);
@@ -1255,6 +1253,7 @@
       return {
         survived: this.survived,
         snapTime: snapTimeStr,
+        runDuration: this.totalDuration,
         maxBendAngle: parseFloat(angleStr),
         peakCps: peakCpsStr,
         avgCps: avgCpsStr,
@@ -1289,9 +1288,9 @@
 
       let tweetText = '';
       if (!data.survived) {
-        tweetText = `I broke the iPhone Duo display in ${data.snapTime}s on Tier ${this.currentTier.tierNumber} (${data.tierName}) with ${data.peakCps} CPS in the JerryRigEverything Bend Test! 📱💥\n\nOut-of-warranty repair bill: $${data.billBreakdown.totalBill} 💸\nCan you damage the display faster?\n\n#iPhoneDuo #JerryRigEverything #BendTest @ZacksJerryRig`;
+        tweetText = `I broke the ${data.deviceModel} display in ${data.snapTime}s on Tier ${this.currentTier.tierNumber} (${data.tierName}) with ${data.peakCps} CPS in the JerryRigEverything Bend Test! 📱💥\n\nOut-of-warranty repair bill: $${data.billBreakdown.totalBill} 💸\nCan you damage the display faster?\n\n#iPhoneDuo #JerryRigEverything #BendTest @ZacksJerryRig`;
       } else {
-        tweetText = `The iPhone Duo SURVIVED my bend test! 📱🛡️\nI only achieved a ${data.maxBendAngle}° bend (${data.damagePct.toFixed(0)}% damage) on Tier ${this.currentTier.tierNumber}. Apple's hinge defeated me!\n\nThink you have faster fingers? Try it:\n\n#iPhoneDuo #JerryRigEverything #BendTest`;
+        tweetText = `The ${data.deviceModel} SURVIVED my bend test! 📱🛡️\nI only achieved a ${data.maxBendAngle}° bend (${data.damagePct.toFixed(0)}% damage) on Tier ${this.currentTier.tierNumber}. The hinge defeated me!\n\nThink you have faster fingers? Try it:\n\n#iPhoneDuo #JerryRigEverything #BendTest`;
       }
 
       return `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(targetUrl)}`;

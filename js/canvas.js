@@ -1415,6 +1415,17 @@
       ctx.roundRect(0, -halfH, L, H, isSamsungFold ? [1, 4, 4, 1] : [2, 10, 10, 2]);
       ctx.fill();
 
+      if (isSamsungFold) {
+        ctx.save();
+        ctx.globalAlpha = 0.20;
+        for (let y = -halfH + 4; y < halfH - 3; y += 2) {
+          ctx.strokeStyle = y % 4 === 0 ? '#e3e9ef' : '#4a535f';
+          ctx.lineWidth = 0.45;
+          ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(L - 12, y); ctx.stroke();
+        }
+        ctx.restore();
+      }
+
       // Longitudinal Specular Studio Softbox Reflection Streak along the rail
       const streakGrad = ctx.createLinearGradient(15, 0, L - 25, 0);
       streakGrad.addColorStop(0, 'rgba(255, 255, 255, 0.05)');
@@ -1581,9 +1592,9 @@
       if (damagePct >= 50.0) {
         ctx.save();
         ctx.shadowColor = PALETTE.oledGreen;
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 4;
         ctx.strokeStyle = PALETTE.oledGreen;
-        ctx.lineWidth = 2.4;
+        ctx.lineWidth = 1.2;
         ctx.beginPath();
         ctx.moveTo(-95 * Math.cos(wingAngle), -halfH + Math.sin(wingAngle) * 95 - 1);
         ctx.lineTo(-topSpread, -halfH - 1);
@@ -1726,6 +1737,7 @@
         ctx.lineTo(-182, 430);
         ctx.closePath();
         ctx.fill();
+        this._shadeHandSurface(ctx, 'left', squeeze);
 
         ctx.shadowColor = 'transparent';
 
@@ -1867,6 +1879,7 @@
         ctx.lineTo(195, 430);
         ctx.closePath();
         ctx.fill();
+        this._shadeHandSurface(ctx, 'right', squeeze);
 
         ctx.shadowColor = 'transparent';
 
@@ -1943,6 +1956,33 @@
         ctx.stroke();
       }
 
+      ctx.restore();
+    }
+
+    // Soft, clipped layers follow the animated hand path rather than a static overlay.
+    _shadeHandSurface(ctx, side, squeeze) {
+      ctx.save();
+      ctx.clip();
+      ctx.shadowColor = 'transparent';
+      const sign = side === 'left' ? -1 : 1;
+      const light = ctx.createRadialGradient(sign * 300, 65, 5, sign * 285, 115, 300);
+      light.addColorStop(0, 'rgba(255,235,211,0.38)');
+      light.addColorStop(0.55, 'rgba(247,190,154,0.08)');
+      light.addColorStop(1, 'rgba(104,48,31,0.18)');
+      ctx.fillStyle = light;
+      ctx.fillRect(sign < 0 ? -550 : 0, -80, 550, 540);
+      const pressure = ctx.createRadialGradient(sign * 50, 45, 3, sign * 65, 62, 90);
+      pressure.addColorStop(0, `rgba(255,236,211,${0.16 + squeeze * 0.16})`);
+      pressure.addColorStop(1, 'rgba(181,92,59,0)');
+      ctx.fillStyle = pressure;
+      ctx.fillRect(sign < 0 ? -170 : 0, -30, 170, 190);
+      // Stable, low-contrast pores avoid temporal noise as the fingers move.
+      for (let i = 0; i < 180; i++) {
+        const x = ((i * 97 + 31) % 520) * sign;
+        const y = (i * 71 + 29) % 430;
+        ctx.fillStyle = i % 3 ? 'rgba(119,66,46,0.045)' : 'rgba(255,235,215,0.10)';
+        ctx.fillRect(x, y, 1.2, 0.8);
+      }
       ctx.restore();
     }
 
@@ -2036,8 +2076,8 @@
 
       // Unified Top-Center Telemetry & Strain Pill Badge (y = -356..-262)
       // Placed at top-center so it NEVER overlaps the bottom subtitle pill!
-      const pillW = 240;
-      const pillH = 92;
+      const pillW = 290;
+      const pillH = 110;
       ctx.fillStyle = 'rgba(12, 16, 22, 0.85)';
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
       ctx.lineWidth = 1.2;
@@ -2051,18 +2091,23 @@
       const angle = (snapshot.bendAngleDeg || 0).toFixed(1);
       ctx.fillStyle = snapshot.damagePct >= 75 ? '#ff3b30' : (snapshot.damagePct >= 25 ? '#ff9500' : '#ffffff');
       ctx.fillText(`${angle}° BEND`, 0, -326);
+      ctx.font = 'bold 10px "SF Mono", monospace';
+      ctx.fillStyle = '#f1c979';
+      const deviceBadge = this._currentTierId === 'titanium' ? 'HARD • SAMSUNG GALAXY Z FOLD 8'
+        : this._currentTierId === 'dust' ? 'MEDIUM • DUST-JAMMED IPHONE DUO' : 'EASY • IPHONE DUO';
+      ctx.fillText(deviceBadge, 0, -307);
 
       const fillRatio = Math.max(0, Math.min(1.0, (snapshot.currentForce || 0) / (snapshot.maxForce || 100)));
       const cps = (snapshot.cps || 0).toFixed(1);
       ctx.font = 'bold 11px "SF Mono", monospace';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.84)';
-      ctx.fillText(`${cps} CPS  •  STRAIN: ${Math.round(fillRatio * 100)}%`, 0, -304);
+      ctx.fillText(`${cps} CPS  •  STRAIN: ${Math.round(fillRatio * 100)}%`, 0, -290);
 
       // Integrated Strain Meter Bar inside the Top-Center Pill
       const barW = 196;
       const barH = 10;
       const barX = -barW / 2;
-      const barY = -290;
+      const barY = -276;
 
       ctx.fillStyle = 'rgba(24, 32, 42, 0.95)';
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
@@ -2103,7 +2148,7 @@
       // 1. Evaluate Tap Impulses & Stage Transitions for Finger Articulation & Particle Bursts
       if (snapshot) {
         const curTaps = snapshot.totalTaps || 0;
-        if (curTaps === 0) {
+        if (snapshot.state === 'IDLE_SELECT' || snapshot.state === 'COUNTDOWN') {
           this._lastTotalTaps = 0;
           this._lastDamageStage = 1;
         } else if (curTaps > this._lastTotalTaps) {
@@ -2122,7 +2167,7 @@
         if (curStage > this._lastDamageStage) {
           const spawnY = this._currentHingeY || EDGE_BASE_Y;
           if (curStage === 2) {
-            this.addFloatingText('PLASTIC DEFORMATION -15°', 0, spawnY - 85, '#ffcc00');
+            this.addFloatingText('FRAME CREASING', 0, spawnY - 85, '#ffcc00');
             this.particlePool.spawn('dust', 0, spawnY, 14);
           } else if (curStage === 3) {
             this.addFloatingText('OLED GREEN LINE OF DEATH ($1,499)', 0, spawnY - 85, PALETTE.oledGreen);

@@ -408,7 +408,7 @@
     if (!ctx) return canvas;
 
     const survived = metrics.survived !== undefined ? Boolean(metrics.survived) : false;
-    const snapTimeStr = metrics.snapTime ? `${metrics.snapTime}s` : 'Survived (15.0s)';
+    const snapTimeStr = metrics.snapTime ? `${metrics.snapTime}s` : `Survived (${Number(metrics.runDuration || 15).toFixed(1)}s)`;
     const maxBendAngle = metrics.maxBendAngle !== undefined ? metrics.maxBendAngle : 90;
     const peakCps = metrics.peakCps !== undefined ? metrics.peakCps : '0.0';
     const totalTaps = metrics.totalTaps !== undefined ? metrics.totalTaps : 0;
@@ -741,23 +741,25 @@
   function generateTwitterShareUrl(metrics = {}, targetUrlOverride = null) {
     const shareUrl = targetUrlOverride || getResolvedShareUrl();
     const survived = metrics.survived !== undefined ? Boolean(metrics.survived) : false;
-    const snapTimeStr = metrics.snapTime ? `${metrics.snapTime}s` : '15.0s';
+    const snapTimeStr = metrics.snapTime ? `${metrics.snapTime}s` : `${Number(metrics.runDuration || 15).toFixed(1)}s`;
     const maxBendAngleStr = `${Math.round(metrics.maxBendAngle || 0)}°`;
     const peakCpsStr = `${metrics.peakCps || '0.0'} CPS`;
     const bill = metrics.billBreakdown || calculateRepairBill(metrics.damagePct || 100, survived);
     const grade = metrics.grade || (survived ? 'A+' : 'F');
     const verdict = metrics.verdict || (survived ? 'TITANIUM SURVIVOR' : 'DISPLAY FAILURE');
 
+    const device = metrics.deviceModel || 'iPhone Duo';
+    const brand = metrics.deviceBrand || 'Apple';
     let tweetText = '';
     if (!survived) {
-      tweetText = `I caused the folding iPhone Duo display to fail in ${snapTimeStr} (${peakCpsStr}) in the JerryRigEverything Bend Test! 📱💥\n\n` +
+      tweetText = `I caused the ${device} display to fail in ${snapTimeStr} (${peakCpsStr}) in the JerryRigEverything Bend Test! 📱💥\n\n` +
         `📐 Max Bend: ${maxBendAngleStr}\n` +
-        `💸 Apple Repair Bill: $${bill.totalBill.toLocaleString('en-US')}\n` +
+        `💸 ${brand} Repair Bill: $${bill.totalBill.toLocaleString('en-US')}\n` +
         `🏆 Grade: ${grade} - ${verdict}\n\n` +
         `"Glass is glass, and glass breaks."\n\n` +
         `Can you make the display fail faster? Test here:`;
     } else {
-      tweetText = `The folding iPhone Duo SURVIVED my bend test! 🛡️📱\n\n` +
+      tweetText = `The ${device} SURVIVED my bend test! 🛡️📱\n\n` +
         `📐 Max Bend: ${maxBendAngleStr}\n` +
         `⚡ Peak Speed: ${peakCpsStr}\n` +
         `🏆 Grade: ${grade} - ${verdict}\n\n` +
@@ -768,7 +770,7 @@
     return `https://twitter.com/intent/tweet?` +
       `text=${encodeURIComponent(tweetText)}` +
       `&url=${encodeURIComponent(shareUrl)}` +
-      `&hashtags=${encodeURIComponent('iPhoneDuo,JerryRigEverything,BendTest')}`;
+      `&hashtags=${encodeURIComponent(`${metrics.deviceBrand === 'Samsung' ? 'GalaxyZFold8' : 'iPhoneDuo'},JerryRigEverything,BendTest`)}`;
   }
 
   /**
@@ -829,7 +831,7 @@
 
     setText('report-grade', grade);
     setText('report-verdict', verdict);
-    setText('report-snap-time', metrics.snapTime ? `${metrics.snapTime}s` : 'Survived (15.0s)');
+    setText('report-snap-time', metrics.snapTime ? `${metrics.snapTime}s` : `Survived (${Number(metrics.runDuration || 15).toFixed(1)}s)`);
     setText('report-bend-angle', `${Math.round(metrics.maxBendAngle || 0)}°`);
     setText('report-peak-cps', `${metrics.peakCps || '0.0'} CPS`);
     setText('report-total-taps', `${metrics.totalTaps || 0}`);

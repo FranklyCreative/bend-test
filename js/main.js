@@ -81,7 +81,8 @@
     const engine = new EngineClass({
       defaultTier: 'standard',
       autoTick: false,
-      interactiveAssist: true
+      interactiveAssist: true,
+      runDuration: 30.0
     });
 
     const renderer = new CanvasRendererClass(canvas, {
@@ -192,7 +193,7 @@
         }
       } else if (newState === EngineClass.STATES.SURVIVAL_FAIL) {
         if (ui && ui.Captions) {
-          ui.Captions.trigger('SURVIVAL', 3);
+          ui.Captions.display(`The ${engine.currentTier.deviceModel || 'iPhone Duo'} survives this bend test.`, 3);
         }
       } else if (newState === EngineClass.STATES.REPORT_CARD) {
         if (ui && typeof ui.showReportCard === 'function') {
@@ -337,6 +338,8 @@
           unlockAudio();
           engine.setTier(tierId);
           updateTierButtonsUI(tierId);
+          updateOrientationButtonUI(engine.orientation);
+          if (ui && typeof ui.hideReportCard === 'function') ui.hideReportCard();
           if (ui && ui.Captions) {
             if (tierId === 'standard') ui.Captions.display("Easy Level: iPhone Duo folding hinge... let's give it the bend test.", 1);
             if (tierId === 'dust') ui.Captions.display("Medium Level: A little desert sand in the iPhone Duo hinge never hurt anyone... or did it?", 1);
