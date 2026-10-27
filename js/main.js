@@ -172,7 +172,9 @@
         btn.title = 'Select ' + tierNames[tierOrder.indexOf(tierId)];
         const lock = btn.querySelector('.tier-lock');
         if (lock) {
-          lock.textContent = cleared ? '✓' : (unlocked ? '' : '🔒');
+          const bestVal = progression.getBest(tierId);
+          const medal = (cleared && ui && typeof ui.getMedalForTime === 'function') ? ui.getMedalForTime(bestVal) : '';
+          lock.textContent = cleared ? (medal ? `${medal}✓` : '✓') : (unlocked ? '' : '🔒');
           lock.style.display = (cleared || !unlocked) ? '' : 'none';
         }
       });
@@ -410,10 +412,72 @@
     bindTouchZone(leftTouchZone, 'left');
     bindTouchZone(rightTouchZone, 'right');
 
-    // Canvas Click Fallback: Auto-alternates hands so mouse clicking pumps both hands!
+    // Interactive Workbench Lab Pre-Test Tools (Scratch, Burn, Sand)
+    const btnToolScratch = document.getElementById('btnToolScratch');
+    const btnToolBurn = document.getElementById('btnToolBurn');
+    const btnToolSand = document.getElementById('btnToolSand');
+
+    function syncLabToolButtonsUI() {
+      const used = engine.labToolsUsed || { scratch: false, burn: false, sand: false };
+      if (btnToolScratch) btnToolScratch.classList.toggle('used', Boolean(used.scratch));
+      if (btnToolBurn) btnToolBurn.classList.toggle('used', Boolean(used.burn));
+      if (btnToolSand) btnToolSand.classList.toggle('used', Boolean(used.sand));
+    }
+
+    function executeLabTool(toolType) {
+      unlockAudio();
+      if (typeof engine.triggerLabTool !== 'function') return false;
+      const res = engine.triggerLabTool(toolType);
+      if (renderer && typeof renderer.triggerLabToolVisual === 'function') {
+        renderer.triggerLabToolVisual(toolType);
+      }
+      syncLabToolButtonsUI();
+      if (res && res.quip && ui && ui.Captions) {
+        ui.Captions.display(res.quip, 3);
+      }
+      return Boolean(res && res.applied);
+    }
+
+    if (btnToolScratch) {
+      btnToolScratch.addEventListener('click', (e) => {
+        e.preventDefault();
+        executeLabTool('scratch');
+      });
+    }
+    if (btnToolBurn) {
+      btnToolBurn.addEventListener('click', (e) => {
+        e.preventDefault();
+        executeLabTool('burn');
+      });
+    }
+    if (btnToolSand) {
+      btnToolSand.addEventListener('click', (e) => {
+        e.preventDefault();
+        executeLabTool('sand');
+      });
+    }
+
+    // Canvas Click Fallback: Check Workbench Props (Box Cutter / Lighter) first, then auto-alternate hands
     if (canvas) {
       canvas.addEventListener('pointerdown', (e) => {
         unlockAudio();
+        if (canvas.getBoundingClientRect && typeof e.clientX === 'number' && typeof e.clientY === 'number') {
+          const rect = canvas.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            const nx = (e.clientX - rect.left) / rect.width;
+            const ny = (e.clientY - rect.top) / rect.height;
+            // Left Box Cutter hit-box (~x: 0.04..0.19, y: 0.25..0.52)
+            if (nx >= 0.03 && nx <= 0.19 && ny >= 0.24 && ny <= 0.52 && !(engine.labToolsUsed && engine.labToolsUsed.scratch)) {
+              executeLabTool('scratch');
+              return;
+            }
+            // Right Lighter hit-box (~x: 0.82..0.97, y: 0.30..0.55)
+            if (nx >= 0.82 && nx <= 0.97 && ny >= 0.28 && ny <= 0.56 && !(engine.labToolsUsed && engine.labToolsUsed.burn)) {
+              executeLabTool('burn');
+              return;
+            }
+          }
+        }
         const hand = (engine.lastTapHand === 'left') ? 'right' : 'left';
 
         if (engine.state === EngineClass.STATES.IDLE_SELECT || engine.state === EngineClass.STATES.COUNTDOWN) {
@@ -568,6 +632,25 @@
         closeLeaderboardModal();
       });
     }
+    const btnShareLeaderboardX = document.getElementById('btnShareLeaderboardX');
+    if (btnShareLeaderboardX && leaderboard && ui && typeof ui.openTwitterShare === 'function') {
+      btnShareLeaderboardX.addEventListener('click', (e) => {
+        e.preventDefault();
+        const topList = leaderboard.getTop10(activeLeaderboardFilter);
+        const topRow = topList[0] || { deviceModel: 'iPhone Duo', snapTime: 6.42, peakCps: 15.4, maxBendAngle: 38, grade: 'S' };
+        ui.openTwitterShare({
+          survived: false,
+          deviceModel: topRow.deviceModel,
+          deviceBrand: topRow.tierId === 'titanium' ? 'Samsung' : (topRow.tierId === 'pixel' ? 'Google' : (topRow.tierId === 'trifold' ? 'Huawei' : 'Apple')),
+          snapTime: Number(topRow.snapTime).toFixed(2),
+          peakCps: Number(topRow.peakCps || 14.0).toFixed(1),
+          maxBendAngle: topRow.maxBendAngle || 38,
+          damagePct: 100,
+          grade: topRow.grade || 'S',
+          verdict: 'TOP 10 LEADERBOARD RECORD'
+        });
+      });
+    }
     if (document.querySelectorAll) {
       Array.from(document.querySelectorAll('.lb-filter-btn')).forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -657,6 +740,7 @@
       btnReset.addEventListener('click', (e) => {
         e.preventDefault();
         engine.resetGame();
+        syncLabToolButtonsUI();
         if (ui && typeof ui.hideReportCard === 'function') {
           ui.hideReportCard();
         }

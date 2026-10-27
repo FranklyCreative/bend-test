@@ -679,6 +679,52 @@
     ctx.fillStyle = '#94A3B8';
     ctx.fillText(`* ${isSamsungCard ? 'Samsung Care+' : 'AppleCare+'} does not cover intentional bend tests.`, rightX + 24, billBoxY + 144);
 
+    // 6B. Force & Damage Telemetry Oscillograph Sparkline (top-right of Invoice Box)
+    const telemetry = Array.isArray(metrics.telemetryHistory) ? metrics.telemetryHistory : [];
+    if (telemetry.length >= 2) {
+      const gx = rightX + 365;
+      const gy = billBoxY + 38;
+      const gw = 195;
+      const gh = 62;
+      ctx.save();
+      ctx.fillStyle = 'rgba(11, 18, 25, 0.82)';
+      ctx.strokeStyle = 'rgba(245, 166, 35, 0.35)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(gx, gy, gw, gh, 6);
+      else ctx.rect(gx, gy, gw, gh);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.font = 'bold 10px monospace, monospace';
+      ctx.fillStyle = '#F5A623';
+      ctx.fillText('FORCE / DAMAGE TELEMETRY', gx + 8, gy + 13);
+
+      // Draw Damage curve (red) and Force curve (amber)
+      ctx.strokeStyle = '#EF4444';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      for (let i = 0; i < telemetry.length; i++) {
+        const px = gx + 8 + (i / (telemetry.length - 1)) * (gw - 16);
+        const py = gy + gh - 6 - (Math.min(100, Math.max(0, telemetry[i].damage || 0)) / 100) * (gh - 24);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      ctx.strokeStyle = '#F5A623';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      for (let i = 0; i < telemetry.length; i++) {
+        const px = gx + 8 + (i / (telemetry.length - 1)) * (gw - 16);
+        const py = gy + gh - 6 - (Math.min(100, Math.max(0, telemetry[i].force || 0)) / 100) * (gh - 24);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
     // 7. Footer Bar
     ctx.fillStyle = '#080E14';
     ctx.fillRect(0, 585, 1200, 45);
@@ -1134,6 +1180,14 @@
     };
   }
 
+  function getMedalForTime(snapTime) {
+    const t = Number(snapTime);
+    if (!Number.isFinite(t) || t <= 0) return '';
+    if (t < 10.0) return '🥇';
+    if (t < 15.0) return '🥈';
+    return '🥉';
+  }
+
   // =========================================================================
   // 9. PUBLIC API EXPORT & UMD NAMESPACE MAPPING
   // =========================================================================
@@ -1143,6 +1197,7 @@
     QUIPS,
     createProgression,
     createLeaderboard,
+    getMedalForTime,
 
     // Subtitle & Caption Engine
     Captions: captionEngine,

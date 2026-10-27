@@ -74,4 +74,34 @@ assert(allIdleQuotes.includes('nano-texture') && allIdleQuotes.includes('7 years
 assert.strictEqual(typeof Audio.speakQuote, 'function', 'Audio module must export speakQuote for audible Zack quotes');
 assert.strictEqual(typeof Audio.stopSpeech, 'function', 'Audio module must export stopSpeech');
 
-console.log('All 5 foldable levels, Top 10 High Score Leaderboard, and audible 5laDGy4INB0 quotes verified.');
+// 5. Verify Interactive Workbench Lab Pre-Tests (Scratch, Burn, Sand) & Overdrive Streak
+engine.resetGame();
+engine.setTier('standard');
+const scratchRes = engine.triggerLabTool('scratch');
+assert(scratchRes && scratchRes.applied, 'triggerLabTool("scratch") must apply pre-test damage');
+assert(engine.labToolsUsed.scratch, 'labToolsUsed.scratch must be true');
+assert(engine.damage >= 3.0 && scratchRes.damagePct >= 3.0, 'Scratch test must add pre-weakening damage');
+const duplicateScratch = engine.triggerLabTool('scratch');
+assert(!duplicateScratch.applied, 'Duplicate scratch test in same run must not double-stack');
+
+const burnRes = engine.triggerLabTool('burn');
+const sandRes = engine.triggerLabTool('sand');
+assert(burnRes.applied && sandRes.applied, 'Burn and Sand lab tools must apply');
+assert.strictEqual(typeof renderer.triggerLabToolVisual, 'function', 'Renderer must export triggerLabToolVisual');
+renderer.triggerLabToolVisual('burn');
+assert(renderer._burnFlameTimer > 0, 'triggerLabToolVisual("burn") must ignite lighter flame timer');
+
+// 6. Verify Alternating Thumb Overdrive Streak & Telemetry History
+engine.resetGame();
+engine.startActiveMashing();
+for (let i = 0; i < 8; i++) {
+  engine.registerTap(i % 2 === 0 ? 'left' : 'right');
+  engine.update(0.1);
+}
+assert(engine.comboStreak >= 6 && engine.overdriveActive, '6+ alternating thumb taps must activate Overdrive Streak');
+assert(engine.telemetryHistory.length >= 2, 'Engine must record force/damage telemetry history during active mashing');
+assert.strictEqual(UI.getMedalForTime(8.5), '🥇', 'Sub-10s snap time must award Gold Medal');
+assert.strictEqual(UI.getMedalForTime(12.5), '🥈', 'Sub-15s snap time must award Silver Medal');
+assert.strictEqual(UI.getMedalForTime(19.0), '🥉', 'Sub-25s snap time must award Bronze Medal');
+
+console.log('All 5 foldable levels, Top 10 High Score Leaderboard, audible 5laDGy4INB0 quotes, and 10 gameplay/graphics improvements verified.');

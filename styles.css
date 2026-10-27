@@ -993,3 +993,60 @@ html, body {
   font-weight: 800;
   color: #ffd60a;
 }
+
+/* --------------------------------------------------------------------------
+   9. Interactive Workbench Lab Pre-Test Tools (Scratch, Burn, Sand)
+   -------------------------------------------------------------------------- */
+.lab-tools-bar {
+  position: absolute;
+  top: 144px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  background: rgba(9, 22, 14, 0.86);
+  border: 1px solid rgba(245, 166, 35, 0.35);
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.lab-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  color: #e6efe9;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.lab-tool-btn:hover:not(:disabled) {
+  background: rgba(245, 166, 35, 0.22);
+  border-color: #f5a623;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+.lab-tool-btn.used {
+  background: rgba(78, 204, 163, 0.22);
+  border-color: #4ecca3;
+  color: #88eac1;
+}
+@media (max-width: 768px) {
+  .lab-tools-bar {
+    top: 6px;
+    gap: 4px;
+    padding: 3px 6px;
+  }
+  .lab-tool-btn {
+    padding: 3px 8px;
+    font-size: 10px;
+  }
+}

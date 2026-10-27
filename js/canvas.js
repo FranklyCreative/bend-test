@@ -1782,6 +1782,76 @@
       ctx.closePath();
       ctx.fill();
 
+      // 2B. Exposed Internal Copper Vapor Chamber, Gold Ribbon Cable & Battery Pouch (damagePct >= 60%)
+      if (damagePct >= 60.0 && topSpread > 2.0) {
+        ctx.save();
+        // Silver lithium battery pouch edge deep inside the split spine
+        ctx.fillStyle = 'rgba(184, 196, 208, 0.75)';
+        ctx.fillRect(-topSpread * 0.55, -2, topSpread * 1.1, 4.5);
+        // Copper thermal vapor chamber strip
+        ctx.fillStyle = '#c86d3b';
+        ctx.fillRect(-topSpread * 0.72, -halfH + 4, topSpread * 1.44, 2.2);
+        // Gold Lego-style flex ribbon cable stretching across the hinge gap (snaps at 100%)
+        ctx.strokeStyle = '#f2c94c';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        if (damagePct < 98.0) {
+          ctx.moveTo(-topSpread * 0.85, -1);
+          ctx.lineTo(topSpread * 0.85, -1);
+        } else {
+          ctx.moveTo(-topSpread * 0.85, -1);
+          ctx.lineTo(-1.8, -2.5);
+          ctx.moveTo(1.8, 0.5);
+          ctx.lineTo(topSpread * 0.85, -1);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 2C. Lab Tool Visual Overlays (Scratch Grooves, Butane Lighter Flame, Extra Hinge Grit)
+      const labTools = this._currentLabTools || {};
+      if (labTools.scratch) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(235, 242, 250, 0.72)';
+        ctx.lineWidth = 0.85;
+        ctx.beginPath();
+        ctx.moveTo(-92, -halfH - 0.8); ctx.lineTo(-78, -halfH - 2.4);
+        ctx.moveTo(-74, -halfH - 0.8); ctx.lineTo(-56, -halfH - 2.8);
+        ctx.moveTo(-52, -halfH - 0.8); ctx.lineTo(-34, -halfH - 2.4);
+        ctx.stroke();
+        ctx.restore();
+      }
+      if (labTools.sand) {
+        ctx.save();
+        const sandPts = [[-6, -halfH + 1], [5, -halfH + 2], [-3, -2], [4, 1], [0, -halfH + 3], [-8, 2], [8, -1]];
+        for (let i = 0; i < sandPts.length; i++) {
+          ctx.fillStyle = (i % 2 === 0) ? '#dfb97a' : '#a8844c';
+          ctx.beginPath();
+          ctx.arc(sandPts[i][0], sandPts[i][1], 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+      if ((this._burnFlameTimer || 0) > 0) {
+        ctx.save();
+        const flicker = Math.sin((this._burnFlameTimer || 0) * 42) * 3.0;
+        const fx = 115;
+        const fy = -halfH - 2;
+        const outerFlame = ctx.createRadialGradient(fx, fy - 14, 2, fx + flicker, fy - 24, 28);
+        outerFlame.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+        outerFlame.addColorStop(0.3, 'rgba(80, 175, 255, 0.85)');
+        outerFlame.addColorStop(0.65, 'rgba(255, 145, 0, 0.80)');
+        outerFlame.addColorStop(1, 'rgba(255, 50, 0, 0)');
+        ctx.fillStyle = outerFlame;
+        ctx.beginPath();
+        ctx.moveTo(fx - 12, fy + 2);
+        ctx.quadraticCurveTo(fx - 16 + flicker, fy - 26, fx + flicker, fy - 46);
+        ctx.quadraticCurveTo(fx + 16 + flicker, fy - 26, fx + 12, fy + 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
       // An edge-on view reveals only a short sliver of the inner display.
       // Its glow grows gradually with damage and stays attached to the crease.
       if (damagePct >= 50.0) {
@@ -1874,6 +1944,29 @@
       ctx.translate(-tx, ty);
       this._drawSingleHand(ctx, 'right', this._rightGripStrain || 0, this.rightSqueeze, this._rightPadPressure || 0);
       ctx.restore();
+
+      // Dynamic OLED Glitch Emissive Reflection Cast onto Both Inner Thumb Tips (damagePct >= 50%)
+      if ((this._currentDamagePct || 0) >= 50.0) {
+        const glowAlpha = Math.min(0.28, 0.12 + ((this._currentDamagePct - 50) / 50) * 0.16);
+        const hy = (typeof this._currentHingeY === 'number' ? this._currentHingeY : EDGE_BASE_Y) + 24;
+        ctx.save();
+        const lGlow = ctx.createRadialGradient(-28, hy, 2, -28, hy, 36);
+        lGlow.addColorStop(0, `rgba(69, 233, 113, ${glowAlpha})`);
+        lGlow.addColorStop(1, 'rgba(69, 233, 113, 0)');
+        ctx.fillStyle = lGlow;
+        ctx.beginPath();
+        ctx.arc(-28, hy, 36, 0, Math.PI * 2);
+        ctx.fill();
+
+        const rGlow = ctx.createRadialGradient(28, hy, 2, 28, hy, 36);
+        rGlow.addColorStop(0, `rgba(255, 45, 149, ${glowAlpha * 0.85})`);
+        rGlow.addColorStop(1, 'rgba(255, 45, 149, 0)');
+        ctx.fillStyle = rGlow;
+        ctx.beginPath();
+        ctx.arc(28, hy, 36, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
     }
 
     /**
@@ -2379,12 +2472,37 @@
       }
 
       const comboActive = snapshot.comboActive === true && Number(snapshot.comboMultiplier) > 1;
+      const streak = Number(snapshot.comboStreak) || 0;
+      const overdrive = snapshot.overdriveActive === true;
       ctx.font = 'bold 10px "SF Mono", monospace';
-      ctx.fillStyle = comboActive ? '#88eac1' : '#cbd5de';
-      ctx.fillText(comboActive
-        ? `ALTERNATING HANDS ×${Number(snapshot.comboMultiplier).toFixed(2)}`
-        : 'ALTERNATE HANDS FOR BONUS', 0, 115);
+      ctx.fillStyle = overdrive ? '#ffd60a' : (comboActive ? '#88eac1' : '#cbd5de');
+      ctx.fillText(overdrive
+        ? `⚡ OVERDRIVE STREAK ×${streak} (BONUS ×${Number(snapshot.comboMultiplier).toFixed(2)})`
+        : (comboActive
+            ? `ALTERNATING HANDS ×${Number(snapshot.comboMultiplier).toFixed(2)}${streak >= 2 ? ' • STREAK ' + streak : ''}`
+            : 'ALTERNATE HANDS FOR BONUS'), 0, 115);
       ctx.restore();
+    }
+
+    /**
+     * Triggers an interactive visual + particle burst on the workbench for Scratch, Burn, or Sand tests.
+     */
+    triggerLabToolVisual(toolType) {
+      const key = String(toolType || '').toLowerCase();
+      const spawnY = this._currentHingeY || EDGE_BASE_Y;
+      if (!this._currentLabTools) this._currentLabTools = {};
+      this._currentLabTools[key] = true;
+      if (key === 'scratch') {
+        this.addFloatingText('MOHS LEVEL 2 SCRATCH • DEEPER GROOVES AT 3', -65, spawnY - 78, '#64d2ff');
+        if (this.options.enableParticles) this.particlePool.spawn('shard', -55, spawnY - 12, 10);
+      } else if (key === 'burn') {
+        this._burnFlameTimer = 2.4;
+        this.addFloatingText('🔥 10s BUTANE LIGHTER FLAME TEST', 75, spawnY - 112, '#ff9f0a');
+        if (this.options.enableParticles) this.particlePool.spawn('spark', 95, spawnY - 14, 12);
+      } else if (key === 'sand') {
+        this.addFloatingText('🏜️ COARSE SILICA SAND POURED INTO HINGE', 0, spawnY - 144, '#ffd60a');
+        if (this.options.enableParticles) this.particlePool.spawn('dust', 0, spawnY - 18, 28);
+      }
     }
 
     // =======================================================================
@@ -2423,11 +2541,15 @@
             this.particlePool.spawn('spark', 0, spawnY - 12, 2);
           } else if (curStage === 5) {
             this.addFloatingText('DISPLAY FAILURE — FRAME INTACT', 0, spawnY - 85, '#ff0033');
-            this.particlePool.spawn('shard', 0, spawnY - 14, 12);
-            this.particlePool.spawn('spark', 0, spawnY - 14, 3);
-            this.particlePool.spawn('dust', 0, spawnY, 22);
+            this.particlePool.spawn('shard', 0, spawnY - 14, 16);
+            this.particlePool.spawn('spark', 0, spawnY - 14, 8);
+            this.particlePool.spawn('dust', 0, spawnY, 26);
+            this._snapShockwaveTimer = 0.55;
           }
           this._lastDamageStage = curStage;
+        }
+        if (snapshot.labToolsUsed) {
+          this._currentLabTools = Object.assign({}, this._currentLabTools || {}, snapshot.labToolsUsed);
         }
 
         if (this.options.viewMode === 'auto') {
@@ -2435,6 +2557,12 @@
         } else {
           this.viewMode = this.options.viewMode || 'front';
         }
+      }
+      if ((this._burnFlameTimer || 0) > 0) {
+        this._burnFlameTimer = Math.max(0, this._burnFlameTimer - dt);
+      }
+      if ((this._snapShockwaveTimer || 0) > 0) {
+        this._snapShockwaveTimer = Math.max(0, this._snapShockwaveTimer - dt);
       }
 
       // Update particle physics
@@ -2494,9 +2622,21 @@
       // --- PASS 7: FOREGROUND FIRST-PERSON HANDS & PROPORTIONAL THUMBS ---
       this._renderHands(ctx, strain, activeHand, dt);
 
-      // --- PASS 6B: PARTICLES (GLASS SHARDS, SPARKS, DUST) ---
+      // --- PASS 6B: PARTICLES (GLASS SHARDS, SPARKS, DUST) & SNAP SHOCKWAVE RING ---
       if (this.options.enableParticles) {
         this.particlePool.draw(ctx);
+      }
+      if ((this._snapShockwaveTimer || 0) > 0) {
+        const prog = 1.0 - (this._snapShockwaveTimer / 0.55);
+        const radius = 18 + prog * 260;
+        const sy = this._currentHingeY || EDGE_BASE_Y;
+        ctx.save();
+        ctx.strokeStyle = `rgba(255, 214, 10, ${(1 - prog) * 0.75})`;
+        ctx.lineWidth = 4.5 * (1 - prog * 0.6);
+        ctx.beginPath();
+        ctx.arc(0, sy, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
       }
 
       // Floating damage text stays in the scene; the HUD uses CSS pixels so

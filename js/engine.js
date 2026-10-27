@@ -304,6 +304,11 @@
       this.lastTapHandTime = { left: -1.0, right: -1.0 };
       this.activeHand = null;
       this.currentComboMultiplier = 1.0;
+      this.comboStreak = 0;
+      this.maxComboStreak = 0;
+      this.labToolsUsed = { scratch: false, burn: false, sand: false };
+      this.telemetryHistory = [{ t: 0, force: 0, damage: 0, angle: 0 }];
+      this._lastTelemetrySampleTime = 0.0;
 
       // Ergonomic blanching & screen shake
       this.leftThumbStrain = 0.0;    // 0 to 1 for ischemic blanching
@@ -375,6 +380,11 @@
       this.lastTapHandTime = { left: -1.0, right: -1.0 };
       this.activeHand = null;
       this.currentComboMultiplier = 1.0;
+      this.comboStreak = 0;
+      this.maxComboStreak = 0;
+      this.labToolsUsed = { scratch: false, burn: false, sand: false };
+      this.telemetryHistory = [{ t: 0, force: 0, damage: 0, angle: 0 }];
+      this._lastTelemetrySampleTime = 0.0;
 
       this.leftThumbStrain = 0.0;
       this.rightThumbStrain = 0.0;
@@ -570,9 +580,14 @@
       const timeSinceLast = (this.lastTapTime > 0) ? (now - this.lastTapTime) : -1;
       if (opts?.combo === true || (this.lastTapHand && this.lastTapHand !== hand && (opts?.force || (timeSinceLast >= 0 && timeSinceLast < 0.40)))) {
         this.currentComboMultiplier = this.currentTier.comboBonus;
+        this.comboStreak = (this.comboStreak || 0) + 1;
+        this.maxComboStreak = Math.max(this.maxComboStreak || 0, this.comboStreak);
+        this.overdriveActive = this.comboStreak >= 6;
         isCombo = true;
       } else {
         this.currentComboMultiplier = 1.0;
+        this.comboStreak = 0;
+        this.overdriveActive = false;
       }
 
       this.lastTapHand = hand;
@@ -808,6 +823,18 @@
       this.timeRemaining = Math.max(0, this.timeRemaining - dt);
       this.elapsedTime += dt;
 
+      // Sample telemetry curve every 0.25s for the Report Card oscillograph
+      if (this.elapsedTime - (this._lastTelemetrySampleTime || 0) >= 0.25) {
+        this._lastTelemetrySampleTime = this.elapsedTime;
+        if (!Array.isArray(this.telemetryHistory)) this.telemetryHistory = [];
+        this.telemetryHistory.push({
+          t: Number(this.elapsedTime.toFixed(2)),
+          force: Number(this.force.toFixed(1)),
+          damage: Number(this.damage.toFixed(1)),
+          angle: Number(this.bendAngle.toFixed(1))
+        });
+      }
+
       // 5. Rolling CPS Window Smoothing
       // Clean timestamps older than 1.0 second
       while (this.inputBuffer.length > 0 && (now - this.inputBuffer[0]) > 1.0) {
@@ -1021,6 +1048,39 @@
      * Returns a pristine snapshot conforming to PROJECT.md GameRenderSnapshot
      * and explorer_survey_1 GameRenderSnapshot.
      */
+    /**
+     * Interactive Workbench Lab Pre-Tests (Scratch Test, Lighter Burn Test, Sand Pour).
+     * Mirrors Zack Nelson's full durability gauntlet from 5laDGy4INB0.
+     */
+    triggerLabTool(toolType) {
+      const key = String(toolType || '').toLowerCase();
+      if (!['scratch', 'burn', 'sand'].includes(key)) return null;
+      if (!this.labToolsUsed) this.labToolsUsed = { scratch: false, burn: false, sand: false };
+      const firstUse = !this.labToolsUsed[key];
+      this.labToolsUsed[key] = true;
+
+      if (firstUse && (this.state === STATES.IDLE_SELECT || this.state === STATES.ACTIVE_MASHING)) {
+        this.force = Math.min(this.maxForce, this.force + 14.0);
+        this.peakForce = Math.max(this.peakForce, this.force);
+        if (this.damage < 92.0) {
+          this.damage = Math.min(95.0, this.damage + 3.5);
+          this._evaluateDamageStages();
+        }
+      }
+
+      if (key === 'scratch') {
+        this.currentQuip = "Plastic inner nano-texture screen scratches at a level 2, with deeper grooves at a level 3.";
+        this.dispatchAudio('GLASS_CRACK', { clusterSize: 2, damagePct: this.damage });
+      } else if (key === 'burn') {
+        this.currentQuip = "Ten seconds under the butane lighter flame... and the inner OLED pixels turn white and recover.";
+        this.dispatchAudio('OLED_BUZZ', { damagePct: this.damage });
+      } else if (key === 'sand') {
+        this.currentQuip = "Let's pour a handful of coarse dirt and sand right onto the hinge and see if the magnets survive.";
+        this.dispatchAudio('FRAME_CREAK', { intensity: 0.75, stage: this.currentStage });
+      }
+      return { applied: firstUse, firstUse, tool: key, quip: this.currentQuip, damage: this.damage, damagePct: this.damage };
+    }
+
     /** Current force threshold for permanent damage, shared by physics and HUD. */
     getYieldThreshold() {
       const damageRatio = Math.max(0, Math.min(1, this.damage / 100));
@@ -1093,6 +1153,10 @@
         comboMultiplier: this.currentComboMultiplier,
         comboActive: comboActive,
         comboRemainingSec: comboRemainingSec,
+        comboStreak: comboActive ? (this.comboStreak || 0) : 0,
+        maxComboStreak: this.maxComboStreak || 0,
+        overdriveActive: comboActive && (this.comboStreak || 0) >= 6,
+        labToolsUsed: Object.assign({}, this.labToolsUsed || {}),
         survived: this.survived,
         snapTime: this.snapTime
       };
@@ -1340,6 +1404,9 @@
         grade: grade,
         verdict: verdict,
         damagePct: this.damage,
+        maxComboStreak: this.maxComboStreak || 0,
+        labToolsUsed: Object.assign({}, this.labToolsUsed || {}),
+        telemetryHistory: Array.isArray(this.telemetryHistory) ? this.telemetryHistory.slice() : [],
         repairBill: repairBill,
         billBreakdown: bill
       };

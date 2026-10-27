@@ -720,10 +720,24 @@
     } catch (e) {}
   }
 
+  function setVoiceDucking(active) {
+    if (!masterGain || !audioCtx || isMuted) return;
+    try {
+      const now = audioCtx.currentTime || 0;
+      const targetVal = active ? 0.55 : 1.0;
+      if (masterGain.gain.setTargetAtTime) {
+        masterGain.gain.setTargetAtTime(targetVal, now, 0.04);
+      } else {
+        masterGain.gain.setValueAtTime(targetVal, now);
+      }
+    } catch (e) {}
+  }
+
   /**
    * Cancels any active Web Speech API utterance.
    */
   function stopSpeech() {
+    setVoiceDucking(false);
     try {
       if (typeof window !== 'undefined' && window.speechSynthesis && typeof window.speechSynthesis.cancel === 'function') {
         window.speechSynthesis.cancel();
@@ -733,7 +747,7 @@
 
   /**
    * Speaks a JerryRigEverything quote aloud using Web Speech API (deep baritone Zack voice)
-   * paired with a warm studio broadcast mic cue so the player can hear every quote.
+   * paired with a warm studio broadcast mic cue and automatic SFX ducking so the player can hear every quote.
    */
   function speakQuote(text, forceSpeak = false) {
     if ((isMuted && !forceSpeak) || !text) return false;
@@ -761,7 +775,7 @@
       }
     } catch (e) {}
 
-    // 2. Spoken Voice Synthesis via Web Speech API
+    // 2. Spoken Voice Synthesis via Web Speech API with automatic SFX ducking
     try {
       if (typeof window !== 'undefined' && window.speechSynthesis && typeof window.SpeechSynthesisUtterance === 'function') {
         window.speechSynthesis.cancel();
@@ -770,6 +784,9 @@
         utter.pitch = 0.80; // Calm, deep Zack Nelson baritone
         utter.rate = 0.98;
         utter.volume = 1.0;
+        utter.onstart = () => setVoiceDucking(true);
+        utter.onend = () => setVoiceDucking(false);
+        utter.onerror = () => setVoiceDucking(false);
 
         const voices = (typeof window.speechSynthesis.getVoices === 'function')
           ? window.speechSynthesis.getVoices()
@@ -780,6 +797,7 @@
                             voices.find(v => /^en/i.test(v.lang));
           if (preferred) utter.voice = preferred;
         }
+        setVoiceDucking(true);
         window.speechSynthesis.speak(utter);
         return true;
       }
