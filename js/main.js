@@ -82,7 +82,7 @@
       defaultTier: 'standard',
       autoTick: false,
       interactiveAssist: true,
-      runDuration: 20.0
+      runDuration: 25.0
     });
 
     const renderer = new CanvasRendererClass(canvas, {

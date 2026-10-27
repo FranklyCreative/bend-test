@@ -433,6 +433,8 @@
       this.lastActiveHand = null;
       this._leftGripStrain = 0;
       this._rightGripStrain = 0;
+      this._leftPadPressure = 0;
+      this._rightPadPressure = 0;
       this._gripTrembleX = 0;
       this._gripTrembleY = 0;
 
@@ -723,7 +725,18 @@
             ctx.fill();
           } else {
             const sz = (g % 7 === 0) ? 2.3 : ((g % 3 === 0) ? 1.7 : 1.15);
-            ctx.fillRect(gx, gy, sz, sz);
+            if (g % 4 === 0) {
+              // Small faceted grains avoid a visible square-grid pattern.
+              ctx.beginPath();
+              ctx.moveTo(gx, gy + sz * 0.4);
+              ctx.lineTo(gx + sz * 0.56, gy);
+              ctx.lineTo(gx + sz * 1.05, gy + sz * 0.62);
+              ctx.lineTo(gx + sz * 0.25, gy + sz);
+              ctx.closePath();
+              ctx.fill();
+            } else {
+              ctx.fillRect(gx, gy, sz * (g % 3 === 0 ? 0.65 : 1), sz * (g % 5 === 0 ? 0.65 : 1));
+            }
           }
         } else if (normUpper <= 1.65 && rand() < 0.26) {
           // Scattered stray sand grains on the surrounding white workbench
@@ -1026,14 +1039,16 @@
       ctx.translate(lFlex * 12, lFlex * 10);
       ctx.rotate(-lFlex * 0.06);
       const lRingGrad = ctx.createLinearGradient(-160, -54, -140, -6);
-      lRingGrad.addColorStop(0, '#d8926c');
-      lRingGrad.addColorStop(0.65, '#ba714c');
-      lRingGrad.addColorStop(1, '#87482a');
+      lRingGrad.addColorStop(0, '#e5a886');
+      lRingGrad.addColorStop(0.4, '#c88968');
+      lRingGrad.addColorStop(0.78, '#ad7054');
+      lRingGrad.addColorStop(1, '#854f39');
       ctx.fillStyle = lRingGrad;
       ctx.beginPath();
       ctx.moveTo(-225, -36);
       ctx.bezierCurveTo(-195, -56, -138, -52, -104, -34);
-      ctx.bezierCurveTo(-88, -24, -90, -8, -114, -6);
+      ctx.bezierCurveTo(-90, -26, -88, -12, -101, -8);
+      ctx.bezierCurveTo(-107, -6, -111, -6, -114, -6);
       ctx.lineTo(-235, -6);
       ctx.closePath();
       ctx.fill();
@@ -1057,8 +1072,8 @@
       ctx.fill();
 
       // Left Middle Finger Knuckle Crease
-      ctx.strokeStyle = 'rgba(104, 50, 28, 0.45)';
-      ctx.lineWidth = 2.0;
+      ctx.strokeStyle = 'rgba(104, 50, 28, 0.28)';
+      ctx.lineWidth = 1.25;
       ctx.beginPath();
       ctx.moveTo(-212, -59);
       ctx.quadraticCurveTo(-206, -34, -214, -10);
@@ -1086,10 +1101,18 @@
       ctx.closePath();
       ctx.fill();
 
+      // A soft contact pad stays clipped to the curling fingertip as it moves.
+      ctx.save(); ctx.clip();
+      const lPad = ctx.createRadialGradient(-211, -23, 1, -211, -23, 38);
+      lPad.addColorStop(0, 'rgba(255, 225, 201, 0.34)');
+      lPad.addColorStop(1, 'rgba(255, 220, 195, 0)');
+      ctx.fillStyle = lPad; ctx.fillRect(-252, -63, 82, 80);
+      ctx.restore();
+
       // Knuckle Blanching & Joint Crease on Left Index Finger
       this._drawBlanchingPressureNode(ctx, -315, -36, 26, 14, Math.min(1.0, leftStrain + lFlex * 0.45));
-      ctx.strokeStyle = 'rgba(98, 46, 24, 0.52)';
-      ctx.lineWidth = 2.2;
+      ctx.strokeStyle = 'rgba(98, 46, 24, 0.32)';
+      ctx.lineWidth = 1.4;
       ctx.beginPath();
       ctx.moveTo(-284, -64);
       ctx.quadraticCurveTo(-276, -34, -286, -8);
@@ -1109,14 +1132,16 @@
       ctx.translate(-rFlex * 12, rFlex * 10);
       ctx.rotate(rFlex * 0.06);
       const rRingGrad = ctx.createLinearGradient(160, -56, 145, -6);
-      rRingGrad.addColorStop(0, '#d8926c');
-      rRingGrad.addColorStop(0.65, '#ba714c');
-      rRingGrad.addColorStop(1, '#87482a');
+      rRingGrad.addColorStop(0, '#e5a886');
+      rRingGrad.addColorStop(0.4, '#c88968');
+      rRingGrad.addColorStop(0.78, '#ad7054');
+      rRingGrad.addColorStop(1, '#854f39');
       ctx.fillStyle = rRingGrad;
       ctx.beginPath();
       ctx.moveTo(232, -38);
       ctx.bezierCurveTo(198, -58, 142, -54, 108, -36);
-      ctx.bezierCurveTo(92, -26, 94, -8, 118, -6);
+      ctx.bezierCurveTo(94, -28, 92, -14, 105, -9);
+      ctx.bezierCurveTo(111, -6, 115, -6, 118, -6);
       ctx.lineTo(240, -6);
       ctx.closePath();
       ctx.fill();
@@ -1140,8 +1165,8 @@
       ctx.fill();
 
       // Right Middle Finger Knuckle Crease
-      ctx.strokeStyle = 'rgba(104, 50, 28, 0.48)';
-      ctx.lineWidth = 2.1;
+      ctx.strokeStyle = 'rgba(104, 50, 28, 0.28)';
+      ctx.lineWidth = 1.25;
       ctx.beginPath();
       ctx.moveTo(218, -62);
       ctx.quadraticCurveTo(212, -34, 222, -10);
@@ -1169,10 +1194,18 @@
       ctx.closePath();
       ctx.fill();
 
+      // A soft contact pad stays clipped to the curling fingertip as it moves.
+      ctx.save(); ctx.clip();
+      const rPad = ctx.createRadialGradient(215, -25, 1, 215, -25, 38);
+      rPad.addColorStop(0, 'rgba(255, 225, 201, 0.34)');
+      rPad.addColorStop(1, 'rgba(255, 220, 195, 0)');
+      ctx.fillStyle = rPad; ctx.fillRect(174, -65, 82, 80);
+      ctx.restore();
+
       // Knuckle Blanching & Joint Crease on Right Index Finger
       this._drawBlanchingPressureNode(ctx, 315, -38, 26, 14, Math.min(1.0, rightStrain + rFlex * 0.45));
-      ctx.strokeStyle = 'rgba(98, 48, 26, 0.54)';
-      ctx.lineWidth = 2.4;
+      ctx.strokeStyle = 'rgba(98, 48, 26, 0.32)';
+      ctx.lineWidth = 1.4;
       ctx.beginPath();
       ctx.moveTo(278, -68);
       ctx.quadraticCurveTo(286, -36, 292, -10);
@@ -1437,14 +1470,14 @@
       const bodyGrad = ctx.createLinearGradient(0, -halfH, 0, halfH);
       if (isSamsungFold) {
         // Samsung Galaxy Z Fold 8: Brushed Satin Titanium Silver / Armor Aluminum rail
-        bodyGrad.addColorStop(0, '#ffffff');
+        bodyGrad.addColorStop(0, '#d6dce1');
         bodyGrad.addColorStop(Math.max(0.08, 0.16 - sheenShift), '#68717e');
         bodyGrad.addColorStop(0.48, '#a7b0be');
         bodyGrad.addColorStop(Math.min(0.92, 0.82 + sheenShift), '#31363f');
         bodyGrad.addColorStop(1, '#d5dde8');
       } else {
         // iPhone Duo: High-Gloss Obsidian-Titanium rail matching video frame
-        bodyGrad.addColorStop(0, '#f4f7fc'); // Top polished silver chamfer
+        bodyGrad.addColorStop(0, '#c8d0d6'); // Soft polished upper chamfer
         bodyGrad.addColorStop(Math.max(0.06, 0.12 - sheenShift), '#14171c'); // Upper dark obsidian rail
         bodyGrad.addColorStop(0.46, '#323944'); // Glossy studio horizon reflection
         bodyGrad.addColorStop(Math.min(0.92, 0.85 + sheenShift), '#090a0d'); // Deep lower shadow
@@ -1480,32 +1513,32 @@
       ctx.fillRect(10, -halfH + 3.2, L - 24, 1.4);
 
       // Bright Chrome Top Edge Highlight (Matches bright metallic line in photo)
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2.0;
+      ctx.strokeStyle = 'rgba(236, 241, 244, 0.70)';
+      ctx.lineWidth = 1.1;
       ctx.beginPath();
       ctx.moveTo(1, -halfH + 1.0);
       ctx.lineTo(L - (isSamsungFold ? 4 : 8), -halfH + 1.0);
       ctx.stroke();
 
       // Subtle Chrome Bottom Edge Highlight
-      ctx.strokeStyle = isSamsungFold ? '#d0d8e4' : '#bcc4d0';
-      ctx.lineWidth = 1.4;
+      ctx.strokeStyle = isSamsungFold ? 'rgba(211, 220, 226, 0.58)' : 'rgba(188, 198, 207, 0.55)';
+      ctx.lineWidth = 0.9;
       ctx.beginPath();
       ctx.moveTo(1, halfH - 1.0);
       ctx.lineTo(L - (isSamsungFold ? 4 : 8), halfH - 1.0);
       ctx.stroke();
 
       // Bright Silver Inner Hinge Edge Highlight (forms the crisp \ / V-notch at u = 0!)
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2.2;
+      ctx.strokeStyle = 'rgba(226, 233, 238, 0.72)';
+      ctx.lineWidth = 1.1;
       ctx.beginPath();
       ctx.moveTo(0.8, -halfH + 0.5);
       ctx.lineTo(0.8, halfH - 0.5);
       ctx.stroke();
 
       // Polished Metallic Corner Highlight at Outer Tip (u = L - 12..L)
-      ctx.strokeStyle = '#eef3fa';
-      ctx.lineWidth = 2.4;
+      ctx.strokeStyle = 'rgba(226, 233, 238, 0.72)';
+      ctx.lineWidth = 1.3;
       ctx.beginPath();
       ctx.arc(L - (isSamsungFold ? 5 : 10), 0, halfH - 1.5, -Math.PI * 0.42, Math.PI * 0.42);
       ctx.stroke();
@@ -1518,9 +1551,13 @@
         const innerBandU = isLeft ? 36 : 42;
         const outerBandU = isLeft ? 316 : 308;
 
-        ctx.fillStyle = '#eef2f7';
-        ctx.fillRect(innerBandU, -halfH + 0.5, 4.5, H - 1.0);
-        ctx.fillRect(outerBandU, -halfH + 0.5, 4.2, H - 1.0);
+        // Thin ceramic antenna breaks sit within the rail, with a soft edge highlight.
+        ctx.fillStyle = isSamsungFold ? 'rgba(66, 73, 80, 0.68)' : 'rgba(173, 185, 194, 0.78)';
+        ctx.fillRect(innerBandU, -halfH + 1, 2.0, H - 2);
+        ctx.fillRect(outerBandU, -halfH + 1, 2.0, H - 2);
+        ctx.fillStyle = 'rgba(240, 244, 247, 0.35)';
+        ctx.fillRect(innerBandU + 2.0, -halfH + 2, 0.7, H - 4);
+        ctx.fillRect(outerBandU + 2.0, -halfH + 2, 0.7, H - 4);
 
         if (isLeft) {
           // Pill-shaped Action / Volume Button & SIM Tray Cutouts on Left Rail
@@ -1566,9 +1603,9 @@
         // Orientation 2: Bottom Port Rail View (media_1793091341571_16c3a2f5.png)
         if (isLeft) {
           // White antenna bands flanking USB-C port
-          ctx.fillStyle = '#eef2f7';
-          ctx.fillRect(102, -halfH + 0.5, 4.5, H - 1.0);
-          ctx.fillRect(242, -halfH + 0.5, 4.5, H - 1.0);
+          ctx.fillStyle = isSamsungFold ? 'rgba(66, 73, 80, 0.68)' : 'rgba(173, 185, 194, 0.78)';
+          ctx.fillRect(102, -halfH + 1, 2.0, H - 2);
+          ctx.fillRect(242, -halfH + 1, 2.0, H - 2);
 
           // USB-C Charging Port Cutout (u = 148..194)
           ctx.fillStyle = '#08090c';
@@ -1591,9 +1628,9 @@
           ctx.fill();
         } else {
           // White antenna bands on Right Wing
-          ctx.fillStyle = '#eef2f7';
-          ctx.fillRect(118, -halfH + 0.5, 4.5, H - 1.0);
-          ctx.fillRect(244, -halfH + 0.5, 4.5, H - 1.0);
+          ctx.fillStyle = isSamsungFold ? 'rgba(66, 73, 80, 0.68)' : 'rgba(173, 185, 194, 0.78)';
+          ctx.fillRect(118, -halfH + 1, 2.0, H - 2);
+          ctx.fillRect(244, -halfH + 1, 2.0, H - 2);
 
           // Inner 4-hole speaker grille (u = 60..96) & Outer 4-hole speaker grille (u = 270..306)
           const holePositions = [60, 72, 84, 96, 152, 222, 270, 282, 294, 306];
@@ -1703,6 +1740,13 @@
         if (snapshot.activeHand === 'right') this.rightSqueeze = 1.0;
         else if (snapshot.activeHand === 'left') this.leftSqueeze = 1.0;
       }
+      // Soft tissue changes shape more slowly than a tap impulse; interpolation
+      // keeps the pad seated at the rail while it compresses and recovers.
+      const padBlend = 1 - Math.exp(-14 * dt);
+      const leftTarget = idle ? 0 : Math.max(this._leftGripStrain * 0.42, this.leftSqueeze * 0.75);
+      const rightTarget = idle ? 0 : Math.max(this._rightGripStrain * 0.42, this.rightSqueeze * 0.75);
+      this._leftPadPressure += (leftTarget - this._leftPadPressure) * padBlend;
+      this._rightPadPressure += (rightTarget - this._rightPadPressure) * padBlend;
       const force = Math.max(this._leftGripStrain, this._rightGripStrain);
       const time = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
       const tremble = Math.pow(force, 1.6) * 1.6;
@@ -1715,11 +1759,11 @@
       const ty = this._gripTrembleY || 0;
       ctx.save();
       ctx.translate(tx, ty);
-      this._drawSingleHand(ctx, 'left', this._leftGripStrain || 0, this.leftSqueeze);
+      this._drawSingleHand(ctx, 'left', this._leftGripStrain || 0, this.leftSqueeze, this._leftPadPressure || 0);
       ctx.restore();
       ctx.save();
       ctx.translate(-tx, ty);
-      this._drawSingleHand(ctx, 'right', this._rightGripStrain || 0, this.rightSqueeze);
+      this._drawSingleHand(ctx, 'right', this._rightGripStrain || 0, this.rightSqueeze, this._rightPadPressure || 0);
       ctx.restore();
     }
 
@@ -1729,7 +1773,7 @@
      * while the thumb angles upward (~55°) from the palm to press directly
      * underneath the center hinge (matching media_1793090353730_8624f37b.png).
      */
-    _drawSingleHand(ctx, side, strain, squeeze) {
+    _drawSingleHand(ctx, side, strain, squeeze, padPressure = 0) {
       const isLeft = (side === 'left');
       const wingAngle = this._currentWingAngle ?? 0.0;
       const hingeY = (typeof this._currentHingeY === 'number') ? this._currentHingeY : EDGE_BASE_Y;
@@ -1737,7 +1781,8 @@
       const halfH = EDGE_RAIL_THICK / 2;
 
       const bendRatio = Math.min(1.0, (this._currentBendDeg || 0) / 38.0);
-      const squeezeLift = squeeze * 3.8;
+      const squeezeLift = padPressure * 3.8;
+      const padSpread = padPressure * 7.0;
       const ipFlex = squeeze * 7.0 + bendRatio * 14.0;
       const palmInward = squeeze * 7.0 + bendRatio * 14.0;
       const palmDrop = squeeze * 4.0 + bendRatio * 12.0;
@@ -1788,20 +1833,21 @@
         // Purlicue / thumb-index webbing hollow (leaves open window under left wing!)
         ctx.bezierCurveTo(-295 + palmInward * 0.4, Math.max(138, tipY + 82 + palmDrop * 0.5), -252 + ipFlex * 0.4, 136 - squeezeLift * 0.5, -222 + ipFlex * 0.5, 118 - squeezeLift * 0.7);
         // Upper-left contour of Left Thumb angling ~55° up-right to meet underside of Left Wing
-        ctx.bezierCurveTo(-182 + ipFlex * 0.4, 88 - squeezeLift * 0.8, -135 + ipFlex * 0.25, yOuter + 32, -86, yOuter + 3);
+        ctx.bezierCurveTo(-185 + ipFlex * 0.4, 90 - squeezeLift * 0.8, -137 + ipFlex * 0.25, yOuter + 34, -92 - padSpread * 0.3, yOuter + 4);
         // Distal Left Thumb Pad flush along the tilted underside of Left Wing (u = 86 -> u = 10)
-        ctx.bezierCurveTo(-58, yMid + 1, -28, yInner, -10, yInner + 2);
+        ctx.bezierCurveTo(-64 - padSpread, yMid + 2, -27, yInner + 1, -10, yInner + 3);
         // Rounded inner tip of Left Thumb at x = -7 (leaving crisp gap under V-hinge!)
-        ctx.bezierCurveTo(-5, yInner + 11, -7, yInner + 30, -24, yInner + 46);
+        ctx.bezierCurveTo(-4, yInner + 13, -9 - padSpread * 0.4, yInner + 34, -33 - padSpread, yInner + 50);
         // Underside of Left Thumb curving down-left through IP knuckle and thenar eminence
-        ctx.bezierCurveTo(-48, yMid + 58, -74 - ipFlex * 0.2, yOuter + 78, -96 - ipFlex * 0.3, 148 - squeezeLift * 0.4);
-        ctx.bezierCurveTo(-118 - ipFlex * 0.2, 208, -132, 278, -158, 348);
-        ctx.lineTo(-182, 430);
+        ctx.bezierCurveTo(-57 - padSpread, yMid + 62, -83 - ipFlex * 0.2, yOuter + 83, -105 - ipFlex * 0.3, 151 - squeezeLift * 0.4);
+        ctx.bezierCurveTo(-124 - ipFlex * 0.2, 215, -138, 290, -162, 352);
+        ctx.quadraticCurveTo(-172, 391, -182, 430);
         ctx.closePath();
         ctx.fill();
         ctx.save();
         ctx.clip();
-        this._shadeHandSurface(ctx, 'left', squeeze);
+        this._shadeHandSurface(ctx, 'left', padPressure);
+        this._drawPalmVolume(ctx, -1, yOuter, padPressure);
 
         ctx.shadowColor = 'transparent';
 
@@ -1817,18 +1863,18 @@
 
         // Specular skin sheen along the sunlit top ridge of the Left Thumb & Index Metatarsal
         const leftRidgeSheen = ctx.createLinearGradient(-390, tipY + 10, -70, yOuter + 12);
-        leftRidgeSheen.addColorStop(0, 'rgba(255, 232, 214, 0.34)');
-        leftRidgeSheen.addColorStop(0.5, 'rgba(255, 224, 200, 0.16)');
-        leftRidgeSheen.addColorStop(1, 'rgba(255, 238, 224, 0.42)');
+        leftRidgeSheen.addColorStop(0, 'rgba(255, 232, 214, 0.15)');
+        leftRidgeSheen.addColorStop(0.5, 'rgba(255, 224, 200, 0.08)');
+        leftRidgeSheen.addColorStop(1, 'rgba(255, 238, 224, 0.19)');
         ctx.strokeStyle = leftRidgeSheen;
-        ctx.lineWidth = 6.5;
+        ctx.lineWidth = 4.0;
         ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(-185 + ipFlex * 0.3, 94 - squeezeLift * 0.7);
         ctx.quadraticCurveTo(-132 + ipFlex * 0.2, yOuter + 34, -56, yMid + 6);
         ctx.stroke();
 
-        this._drawThumbContact(ctx, -1, yInner, yMid, yOuter, squeeze);
+        this._drawThumbContact(ctx, -1, yInner, yMid, yOuter, padPressure);
 
         // 3. Ischemic White-Knuckle Blanching on Left Thumb Tip & IP Knuckle
         const effLeftStrain = Math.min(1.0, strain + squeeze * 0.55);
@@ -1838,16 +1884,16 @@
         // In this grip the thumbnail faces away and is obscured by the phone.
 
         // 5. Authentic Anatomical Skin Creases & Thumb IP Joint Wrinkles
-        ctx.strokeStyle = 'rgba(110, 52, 28, 0.31)';
+        ctx.strokeStyle = 'rgba(110, 52, 28, 0.20)';
         ctx.lineCap = 'round';
 
         const webY = Math.max(132, tipY + 78 + palmDrop * 0.4);
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(-262 + palmInward * 0.3, webY);
-        ctx.quadraticCurveTo(-245, webY + 44, -225, webY + 95);
+        ctx.quadraticCurveTo(-244, webY + 19, -232, webY + 45);
         ctx.moveTo(-238 + palmInward * 0.3, webY + 6);
-        ctx.quadraticCurveTo(-212, webY + 46, -188, webY + 78);
+        ctx.quadraticCurveTo(-218, webY + 22, -207, webY + 45);
         ctx.moveTo(lx + 10, webY - 10);
         ctx.quadraticCurveTo(-298, webY + 4, -262 + palmInward * 0.3, webY);
         ctx.stroke();
@@ -1915,20 +1961,21 @@
         // Webbing hollow between right index finger and right thumb (leaves window under speaker holes!)
         ctx.bezierCurveTo(302 - palmInward * 0.4, Math.max(132, tipY + 78 + palmDrop * 0.5), 250 - ipFlex * 0.4, 128 - squeezeLift * 0.5, 210 - ipFlex * 0.5, 108 - squeezeLift * 0.7);
         // Upper-right contour of Right Thumb angling ~55° up-left to meet underside of Right Wing
-        ctx.bezierCurveTo(175 - ipFlex * 0.4, 78 - squeezeLift * 0.8, 135 - ipFlex * 0.25, yOuter + 28, 86, yOuter + 2);
+        ctx.bezierCurveTo(181 - ipFlex * 0.4, 82 - squeezeLift * 0.8, 139 - ipFlex * 0.25, yOuter + 31, 92 + padSpread * 0.3, yOuter + 4);
         // Broad Right Thumb Pad flush along the tilted underside of Right Wing (u = 86 -> u = 10)
-        ctx.bezierCurveTo(58, yMid, 28, yInner, 10, yInner + 2);
+        ctx.bezierCurveTo(64 + padSpread, yMid + 2, 27, yInner + 1, 10, yInner + 3);
         // Rounded inner tip of Right Thumb at x = +7 (leaving crisp gap under V-hinge!)
-        ctx.bezierCurveTo(5, yInner + 11, 7, yInner + 32, 26, yInner + 48);
+        ctx.bezierCurveTo(4, yInner + 13, 9 + padSpread * 0.4, yInner + 34, 33 + padSpread, yInner + 50);
         // Underside of Right Thumb curving down-right through wrinkled IP joint and palm
-        ctx.bezierCurveTo(52, yMid + 58, 76 + ipFlex * 0.2, yOuter + 80, 98 + ipFlex * 0.3, 154 - squeezeLift * 0.4);
-        ctx.bezierCurveTo(118 + ipFlex * 0.2, 215, 128, 295, 165, 365);
-        ctx.lineTo(195, 430);
+        ctx.bezierCurveTo(57 + padSpread, yMid + 62, 83 + ipFlex * 0.2, yOuter + 83, 105 + ipFlex * 0.3, 154 - squeezeLift * 0.4);
+        ctx.bezierCurveTo(125 + ipFlex * 0.2, 220, 140, 294, 166, 360);
+        ctx.quadraticCurveTo(180, 398, 195, 430);
         ctx.closePath();
         ctx.fill();
         ctx.save();
         ctx.clip();
-        this._shadeHandSurface(ctx, 'right', squeeze);
+        this._shadeHandSurface(ctx, 'right', padPressure);
+        this._drawPalmVolume(ctx, 1, yOuter, padPressure);
 
         ctx.shadowColor = 'transparent';
 
@@ -1944,18 +1991,18 @@
 
         // Specular skin sheen along the sunlit top ridge of the Right Thumb
         const rightRidgeSheen = ctx.createLinearGradient(390, tipY + 10, 70, yOuter + 12);
-        rightRidgeSheen.addColorStop(0, 'rgba(255, 232, 214, 0.32)');
-        rightRidgeSheen.addColorStop(0.5, 'rgba(255, 224, 200, 0.16)');
-        rightRidgeSheen.addColorStop(1, 'rgba(255, 238, 224, 0.42)');
+        rightRidgeSheen.addColorStop(0, 'rgba(255, 232, 214, 0.15)');
+        rightRidgeSheen.addColorStop(0.5, 'rgba(255, 224, 200, 0.08)');
+        rightRidgeSheen.addColorStop(1, 'rgba(255, 238, 224, 0.19)');
         ctx.strokeStyle = rightRidgeSheen;
-        ctx.lineWidth = 6.5;
+        ctx.lineWidth = 4.0;
         ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(182 - ipFlex * 0.3, 86 - squeezeLift * 0.7);
         ctx.quadraticCurveTo(132 - ipFlex * 0.2, yOuter + 30, 56, yMid + 5);
         ctx.stroke();
 
-        this._drawThumbContact(ctx, 1, yInner, yMid, yOuter, squeeze);
+        this._drawThumbContact(ctx, 1, yInner, yMid, yOuter, padPressure);
 
         // 3. Ischemic White-Knuckle Blanching on Right Thumb Pad & Knuckle
         const effRightStrain = Math.min(1.0, strain + squeeze * 0.55);
@@ -1965,16 +2012,16 @@
         // The thumbnail is hidden behind the rail in this edge-on view.
 
         // 5. Authentic Transverse Wrinkles on Right Thumb & Deep Palm Crease Lines
-        ctx.strokeStyle = 'rgba(88, 40, 20, 0.33)';
+        ctx.strokeStyle = 'rgba(88, 40, 20, 0.20)';
         ctx.lineCap = 'round';
 
         const rWebY = Math.max(118, tipY + 68 + palmDrop * 0.4);
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(332 - palmInward * 0.3, rWebY);
-        ctx.quadraticCurveTo(272, rWebY + 4, 215, rWebY + 38);
+        ctx.quadraticCurveTo(299, rWebY + 7, 275, rWebY + 23);
         ctx.moveTo(345 - palmInward * 0.3, rWebY + 12);
-        ctx.quadraticCurveTo(290, rWebY + 28, 242, rWebY + 62);
+        ctx.quadraticCurveTo(319, rWebY + 24, 294, rWebY + 43);
         ctx.moveTo(rx + 25, rWebY - 28);
         ctx.quadraticCurveTo(345, rWebY - 8, 318 - palmInward * 0.3, rWebY + 2);
         ctx.stroke();
@@ -1993,6 +2040,22 @@
       }
 
       ctx.restore();
+    }
+
+    // Broad translucent light and shade make the thenar muscle read as volume.
+    // Both gradients are clipped to the animated palm silhouette by the caller.
+    _drawPalmVolume(ctx, side, yOuter, pressure) {
+      const glow = ctx.createRadialGradient(side * 145, yOuter + 76, 6, side * 165, yOuter + 100, 145);
+      glow.addColorStop(0, `rgba(255,218,190,${0.18 + pressure * 0.07})`);
+      glow.addColorStop(0.55, 'rgba(236,165,126,0.08)');
+      glow.addColorStop(1, 'rgba(184,93,59,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(side < 0 ? -330 : 0, yOuter - 45, 330, 320);
+      const hollow = ctx.createRadialGradient(side * 225, yOuter + 190, 4, side * 225, yOuter + 190, 128);
+      hollow.addColorStop(0, 'rgba(112,52,31,0.20)');
+      hollow.addColorStop(1, 'rgba(112,52,31,0)');
+      ctx.fillStyle = hollow;
+      ctx.fillRect(side < 0 ? -370 : 80, yOuter + 45, 290, 290);
     }
 
     _drawThumbContact(ctx, side, yInner, yMid, yOuter, squeeze) {
@@ -2340,7 +2403,8 @@
       const sceneKeys = ['_currentDamagePct', '_currentStrain', '_currentTierId',
         '_currentWingAngle', '_currentHingeY', '_currentHingeGap', '_currentBendDeg',
         '_currentOrientation', '_leftGripStrain', '_rightGripStrain', 'leftSqueeze',
-        'rightSqueeze', 'tapPump', '_gripTrembleX', '_gripTrembleY'];
+        'rightSqueeze', 'tapPump', '_leftPadPressure', '_rightPadPressure',
+        '_gripTrembleX', '_gripTrembleY'];
       for (const key of sceneKeys) saved[key] = this[key];
       try {
         this._currentDamagePct = damagePct;
@@ -2348,6 +2412,7 @@
         this._currentTierId = snapshot && snapshot.tier ? snapshot.tier.id : 'standard';
         this._leftGripStrain = this._rightGripStrain = 0.6;
         this.leftSqueeze = this.rightSqueeze = 0.15;
+        this._leftPadPressure = this._rightPadPressure = 0.2;
         this.tapPump = this._gripTrembleX = this._gripTrembleY = 0;
         this._renderPhoneFace('front', damagePct, 80.0);
         this._renderPerspectivePhone(ctx, bendAngle, 'REVERSE_BEND');
@@ -2392,7 +2457,7 @@
       ctx.lineWidth = 1.2;
       ctx.stroke();
 
-      const snapTime = snapshot && snapshot.snapTime ? `${Number(snapshot.snapTime).toFixed(2)}s` : '20.00s';
+      const snapTime = snapshot && snapshot.snapTime ? `${Number(snapshot.snapTime).toFixed(2)}s` : '25.00s';
       const peakCps = snapshot && snapshot.peakCps ? `${Number(snapshot.peakCps).toFixed(1)} CPS` : '12.0 CPS';
       const maxAngle = snapshot && snapshot.bendAngleDeg ? `${Number(snapshot.bendAngleDeg).toFixed(1)}°` : `${bendAngle.toFixed(1)}°`;
       const repairBill = !survived ? '$1,899 (Out-of-Warranty)' : '$0';

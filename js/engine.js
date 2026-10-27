@@ -779,7 +779,7 @@
       // 7. Dynamic Yield Threshold & Super-Linear Damage Integration
       // Dynamic yield threshold drops as damage accumulates:
       // F_yield(D) = F_yield_0 * (1.0 - 0.5 * (D / 100))
-      const assistYieldMult = this.options.interactiveAssist ? 0.9 : 1.0;
+      const assistYieldMult = this.options.interactiveAssist ? 0.72 : 1.0;
       const dynamicYield = this.currentTier.yieldThreshold * assistYieldMult * (1.0 - 0.5 * damageRatio);
       const excessForce = Math.max(0.0, this.force - dynamicYield);
 
@@ -787,8 +787,9 @@
       if (excessForce > 0) {
         // dD/dt = eta * (F_excess)^1.2
         let damageRate = this.currentTier.damageScale * Math.pow(excessForce, 1.2);
-        // Interactive runs need sustained pressure above yield, not damage per tap.
-        if (this.options.interactiveAssist) damageRate *= 0.30;
+        // Limit the fastest runs while keeping damage continuous above yield.
+        // The cap only affects browser-assisted play; headless physics is unchanged.
+        if (this.options.interactiveAssist) damageRate = Math.min(12.5, damageRate * 0.15);
 
         // Front bend has heavy mechanical lockout (divided by 4.0x resistance)
         if (this.orientation === ORIENTATIONS.FRONT_BEND) {
@@ -1192,9 +1193,11 @@
       // Durability grade calculation
       let grade = 'F';
       if (!this.survived) {
-        if (this.snapTime < 5.0) grade = 'S';
-        else if (this.snapTime <= 8.5) grade = 'A';
-        else if (this.snapTime <= 12.0) grade = 'B';
+        // Browser rounds are paced for sustained effort over 25 seconds.
+        const thresholds = this.options.interactiveAssist ? [9.5, 12.5, 19.5] : [5.0, 8.5, 12.0];
+        if (this.snapTime < thresholds[0]) grade = 'S';
+        else if (this.snapTime <= thresholds[1]) grade = 'A';
+        else if (this.snapTime <= thresholds[2]) grade = 'B';
         else grade = 'C';
       } else {
         if (this.damage < 25.0) grade = 'A+';
