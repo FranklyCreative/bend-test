@@ -178,6 +178,31 @@
         damageScale: 0.52,
         comboBonus: 1.40
       }
+    },
+    honour: {
+      id: 'honour',
+      tierNumber: 6,
+      name: 'Honour V6 Super-Steel',
+      displayName: 'Honour V6',
+      deviceBrand: 'Honour',
+      deviceModel: 'Honour V6',
+      difficultyLabel: 'Apex • Honour V6',
+      chassis: '2100MPa Super-Steel Luban Hinge + Aerospace Special Fiber',
+      runDuration: 15.0,
+      forcePerTap: 2.6,
+      yieldThreshold: 46.0,
+      decayRate: 3.8,
+      damageScale: 0.65,
+      comboBonus: 1.45,
+      targetCps: 14.5,
+      description: 'Top-level toughness boss: Honour V6 with 2100MPa Super-Steel Luban Hinge and aerospace fiber backplate.',
+      calibrated: {
+        forcePerTap: 3.6,
+        yieldThreshold: 30.0,
+        decayRate: 2.5,
+        damageScale: 0.48,
+        comboBonus: 1.45
+      }
     }
   };
 
@@ -307,6 +332,9 @@
       this.comboStreak = 0;
       this.maxComboStreak = 0;
       this.labToolsUsed = { scratch: false, burn: false, sand: false };
+      this.konamiActive = false;
+      this.superScore = 0;
+      this._konamiSeq = [];
       this.telemetryHistory = [{ t: 0, force: 0, damage: 0, angle: 0 }];
       this._lastTelemetrySampleTime = 0.0;
 
@@ -383,6 +411,9 @@
       this.comboStreak = 0;
       this.maxComboStreak = 0;
       this.labToolsUsed = { scratch: false, burn: false, sand: false };
+      this.konamiActive = false;
+      this.superScore = 0;
+      this._konamiSeq = [];
       this.telemetryHistory = [{ t: 0, force: 0, damage: 0, angle: 0 }];
       this._lastTelemetrySampleTime = 0.0;
 
@@ -442,9 +473,11 @@
         else if (tierKeyOrNum === 3) targetTier = DIFFICULTY_TIERS.titanium;
         else if (tierKeyOrNum === 4) targetTier = DIFFICULTY_TIERS.pixel;
         else if (tierKeyOrNum === 5) targetTier = DIFFICULTY_TIERS.trifold;
+        else if (tierKeyOrNum === 6) targetTier = DIFFICULTY_TIERS.honour;
       } else if (typeof tierKeyOrNum === 'string') {
         const key = tierKeyOrNum.toLowerCase();
-        if (key.includes('trifold') || key.includes('mate') || key.includes('huawei') || key.includes('boss') || key === '5') targetTier = DIFFICULTY_TIERS.trifold;
+        if (key.includes('honour') || key.includes('honor') || key.includes('v6') || key.includes('apex') || key === '6') targetTier = DIFFICULTY_TIERS.honour;
+        else if (key.includes('trifold') || key.includes('mate') || key.includes('huawei') || key.includes('boss') || key === '5') targetTier = DIFFICULTY_TIERS.trifold;
         else if (key.includes('pixel') || key.includes('google') || key.includes('expert') || key === '4') targetTier = DIFFICULTY_TIERS.pixel;
         else if (key.includes('standard') || key.includes('duo') || key.includes('easy') || key === '1') targetTier = DIFFICULTY_TIERS.standard;
         else if (key.includes('dust') || key.includes('medium') || key === '2') targetTier = DIFFICULTY_TIERS.dust;
@@ -602,7 +635,7 @@
       // 3. Force Impulse Calculation (with human-friendly interactiveAssist in browser)
       const tierId = this.currentTier ? this.currentTier.id : 'standard';
       const assistForceMult = this.options.interactiveAssist
-        ? (tierId === 'trifold' ? 2.85 : (tierId === 'titanium' ? 2.53 : (tierId === 'pixel' ? 1.68 : (tierId === 'dust' ? 0.95 : 1.0))))
+        ? (tierId === 'honour' ? 3.15 : (tierId === 'trifold' ? 2.85 : (tierId === 'titanium' ? 2.53 : (tierId === 'pixel' ? 1.68 : (tierId === 'dust' ? 0.95 : 1.0)))))
         : 1.0;
 
       const deltaForce = this.currentTier.forcePerTap *
@@ -1087,6 +1120,77 @@
       return { applied: firstUse, firstUse, tool: key, quip: this.currentQuip, damage: this.damage, damagePct: this.damage };
     }
 
+    /**
+     * Konami Code Detector & Special Destruction Super Score Trigger
+     * Supports both classic ↑↑↓↓←→←→BA and JerryRig ↑↑↓↓ADAD sequences.
+     */
+    checkKonamiKey(rawCode) {
+      if (!rawCode) return false;
+      const c = String(rawCode);
+      const norm = (c === 'KeyW') ? 'ArrowUp'
+        : (c === 'KeyS') ? 'ArrowDown'
+        : (c === 'KeyA' || c === 'a' || c === 'A') ? 'A'
+        : (c === 'KeyB' || c === 'b' || c === 'B') ? 'B'
+        : (c === 'KeyD' || c === 'd' || c === 'D') ? 'D'
+        : c;
+
+      if (!Array.isArray(this._konamiSeq)) this._konamiSeq = [];
+      this._konamiSeq.push(norm);
+      if (this._konamiSeq.length > 10) {
+        this._konamiSeq.shift();
+      }
+      const tail10 = this._konamiSeq.join(',');
+      const tail8 = this._konamiSeq.slice(-8).join(',');
+      const classicSeq = 'ArrowUp,ArrowUp,ArrowDown,ArrowDown,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,B,A';
+      const classicArrowSeq = 'ArrowUp,ArrowUp,ArrowDown,ArrowDown,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,KeyB,KeyA';
+      const jerrySeq = 'ArrowUp,ArrowUp,ArrowDown,ArrowDown,A,D,A,D';
+
+      if (tail10 === classicSeq || tail10 === classicArrowSeq || tail8 === jerrySeq) {
+        this._konamiSeq = [];
+        return this.triggerKonamiDestruction();
+      }
+      return false;
+    }
+
+    triggerKonamiDestruction() {
+      this.konamiActive = true;
+      this.superScore = 999999;
+      this.orientation = ORIENTATIONS.REVERSE_BEND;
+      this.foldState = FOLD_STATES.UNFOLDED;
+      this.force = 100.0;
+      this.peakForce = 100.0;
+      this.cpsRaw = 99.9;
+      this.cpsSmoothed = 99.9;
+      this.peakCps = 99.9;
+      this.totalTaps = Math.max(99, this.totalTaps || 0);
+      this.comboStreak = 99;
+      this.maxComboStreak = 99;
+      this.overdriveActive = true;
+      this.labToolsUsed = { scratch: true, burn: true, sand: true };
+      this.elapsedTime = 0.42;
+      this.snapTime = 0.42;
+      this.bendAngle = 38.0;
+      this.maxBendAngle = 38.0;
+      this.telemetryHistory = [
+        { t: 0.0, force: 25, damage: 10, angle: 8 },
+        { t: 0.14, force: 75, damage: 48, angle: 22 },
+        { t: 0.28, force: 100, damage: 84, angle: 34 },
+        { t: 0.42, force: 100, damage: 100, angle: 38 }
+      ];
+      this.currentQuip = "⚡ KONAMI CODE UNLOCKED: 9,999 Newton-meters of pure thumb torque! Total structural annihilation—999,999 SUPER SCORE!";
+      this._triggerCatastrophicSnap();
+      this.snapTime = 0.42;
+      return {
+        unlocked: true,
+        konamiActive: true,
+        superScore: 999999,
+        snapTime: 0.42,
+        peakCps: 99.9,
+        grade: 'S+',
+        quip: this.currentQuip
+      };
+    }
+
     /** Current force threshold for permanent damage, shared by physics and HUD. */
     getYieldThreshold() {
       const damageRatio = Math.max(0, Math.min(1, this.damage / 100));
@@ -1161,7 +1265,9 @@
         comboRemainingSec: comboRemainingSec,
         comboStreak: comboActive ? (this.comboStreak || 0) : 0,
         maxComboStreak: this.maxComboStreak || 0,
-        overdriveActive: comboActive && (this.comboStreak || 0) >= 6,
+        overdriveActive: (comboActive && (this.comboStreak || 0) >= 6) || Boolean(this.konamiActive),
+        konamiActive: Boolean(this.konamiActive),
+        superScore: this.superScore || 0,
         labToolsUsed: Object.assign({}, this.labToolsUsed || {}),
         survived: this.survived,
         snapTime: this.snapTime
@@ -1358,7 +1464,8 @@
         dust:     { screen: 1549, hinge: 389, frame: 229, battery: 119 },
         titanium: { screen: 1679, hinge: 429, frame: 289, battery: 149 },
         pixel:    { screen: 1729, hinge: 459, frame: 319, battery: 159 },
-        trifold:  { screen: 2399, hinge: 689, frame: 449, battery: 219 }
+        trifold:  { screen: 2399, hinge: 689, frame: 449, battery: 219 },
+        honour:   { screen: 2599, hinge: 749, frame: 529, battery: 249 }
       };
       const basePrices = tierBasePricing[tierId] || tierBasePricing.standard;
 
@@ -1422,6 +1529,13 @@
         }
         bill.batteryCost = bill.batteryHazard;
       }
+      if (this.konamiActive) {
+        bill.innerDisplay = 4999; bill.screenCost = 4999;
+        bill.hingeAssembly = 2499; bill.hingeCost = 2499;
+        bill.frameAlignment = 1499; bill.frameCost = 1499;
+        bill.batteryHazard = 1002; bill.batteryCost = 1002;
+        grade = 'S+';
+      }
       bill.totalBill = (bill.innerDisplay || 0) + (bill.hingeAssembly || 0) + (bill.frameAlignment || 0) + (bill.batteryHazard || 0);
 
       // Expose both repairBill and billBreakdown per contract Requirement 2
@@ -1436,9 +1550,9 @@
         outOfWarranty: true
       };
 
-      const verdict = (!this.survived) ?
-        'INNER DISPLAY FAILURE' :
-        'DISPLAY SURVIVED THE BEND TEST';
+      const verdict = this.konamiActive
+        ? 'KONAMI SUPER DESTRUCTION — 999,999 PTS'
+        : ((!this.survived) ? 'INNER DISPLAY FAILURE' : 'DISPLAY SURVIVED THE BEND TEST');
 
       return {
         survived: this.survived,
@@ -1457,6 +1571,8 @@
         verdict: verdict,
         damagePct: this.damage,
         maxComboStreak: this.maxComboStreak || 0,
+        konamiActive: Boolean(this.konamiActive),
+        superScore: this.konamiActive ? (this.superScore || 999999) : Math.round((this.damage * 450) + ((this.peakCps || 0) * 1200) + ((this.maxComboStreak || 0) * 650)),
         labToolsUsed: Object.assign({}, this.labToolsUsed || {}),
         telemetryHistory: Array.isArray(this.telemetryHistory) ? this.telemetryHistory.slice() : [],
         repairBill: repairBill,
@@ -1603,6 +1719,7 @@
         simulateMash: (p1, p2, opts) => self.simulateMash(p1, p2, opts),
         triggerDamagePct: (targetPct) => self.forceDamagePct(targetPct),
         forceDamage: (targetPct) => self.forceDamagePct(targetPct),
+        triggerKonamiCode: () => self.triggerKonamiDestruction(),
         onStageChange: (cb) => self.onStageChange(cb),
         offStageChange: (cb) => self.offStageChange(cb),
         getShareUrl: (url) => self.getShareUrl(url),

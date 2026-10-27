@@ -438,9 +438,10 @@
       : '';
     const playerName = String(metrics.playerName || rawNameFromDom || 'Lab Tester').trim() || 'Lab Tester';
 
-    const isHuaweiCard = (tierId === 'trifold') || (metrics.deviceBrand === 'Huawei') || (tierName && tierName.toLowerCase().includes('mate xt'));
-    const isPixelCard = (tierId === 'pixel') || (metrics.deviceBrand === 'Google') || (tierName && tierName.toLowerCase().includes('pixel'));
-    const isSamsungCard = !isHuaweiCard && !isPixelCard && ((tierId === 'titanium') || (tierName && tierName.toLowerCase().includes('fold')) || (metrics.deviceBrand === 'Samsung'));
+    const isHonourCard = (tierId === 'honour') || (metrics.deviceBrand === 'Honour') || (metrics.deviceBrand === 'Honor') || (tierName && (tierName.toLowerCase().includes('honour') || tierName.toLowerCase().includes('honor') || tierName.toLowerCase().includes('v6')));
+    const isHuaweiCard = !isHonourCard && ((tierId === 'trifold') || (metrics.deviceBrand === 'Huawei') || (tierName && tierName.toLowerCase().includes('mate xt')));
+    const isPixelCard = !isHonourCard && !isHuaweiCard && ((tierId === 'pixel') || (metrics.deviceBrand === 'Google') || (tierName && tierName.toLowerCase().includes('pixel')));
+    const isSamsungCard = !isHonourCard && !isHuaweiCard && !isPixelCard && ((tierId === 'titanium') || (tierName && tierName.toLowerCase().includes('fold')) || (metrics.deviceBrand === 'Samsung'));
     const isDustCard = (tierId === 'dust') || (tierName && tierName.toLowerCase().includes('dust'));
 
     const bill = metrics.billBreakdown || calculateRepairBill(damagePct, survived);
@@ -500,13 +501,15 @@
     ctx.font = '600 17px monospace, monospace';
     ctx.fillStyle = '#94A3B8';
     ctx.textAlign = 'right';
-    const cardDeviceLabel = isHuaweiCard
-      ? 'HUAWEI MATE XT TRI-FOLD [BOSS]'
-      : (isPixelCard
-          ? 'GOOGLE PIXEL 10 PRO FOLD [EXPERT]'
-          : (isSamsungCard
-              ? 'SAMSUNG GALAXY Z FOLD 8 [HARD]'
-              : `iPHONE DUO [${tierName.toUpperCase()}]`));
+    const cardDeviceLabel = isHonourCard
+      ? 'HONOUR V6 [APEX]'
+      : (isHuaweiCard
+          ? 'HUAWEI MATE XT TRI-FOLD [BOSS]'
+          : (isPixelCard
+              ? 'GOOGLE PIXEL 10 PRO FOLD [EXPERT]'
+              : (isSamsungCard
+                  ? 'SAMSUNG GALAXY Z FOLD 8 [HARD]'
+                  : `iPHONE DUO [${tierName.toUpperCase()}]`)));
     ctx.fillText(`DEVICE: ${cardDeviceLabel}`, 1150, 52);
     ctx.textAlign = 'left';
 
@@ -537,7 +540,7 @@
     // Top telemetry badge inside schematic panel (Handset + Damage % + Bend °)
     ctx.font = 'bold 12px monospace, monospace';
     ctx.fillStyle = '#F5A623';
-    const modelShort = metrics.deviceModel || (isHuaweiCard ? 'Huawei Mate XT Tri-Fold' : (isPixelCard ? 'Google Pixel 10 Pro Fold' : (isSamsungCard ? 'Samsung Galaxy Z Fold 8' : (isDustCard ? 'iPhone Duo (Dust)' : 'iPhone Duo'))));
+    const modelShort = metrics.deviceModel || (isHonourCard ? 'Honour V6' : (isHuaweiCard ? 'Huawei Mate XT Tri-Fold' : (isPixelCard ? 'Google Pixel 10 Pro Fold' : (isSamsungCard ? 'Samsung Galaxy Z Fold 8' : (isDustCard ? 'iPhone Duo (Dust)' : 'iPhone Duo')))));
     ctx.fillText(`HANDSET: ${modelShort.toUpperCase()}`, phoneX + 18, phoneY + 26);
     ctx.textAlign = 'right';
     ctx.fillStyle = (!survived || damagePct >= 75) ? '#EF4444' : '#38BDF8';
@@ -548,9 +551,9 @@
     const centerX = phoneX + phoneW / 2;
     const centerY = phoneY + phoneH / 2 + 12;
     const wingTilt = (Math.min(42, Math.max(0, Number(maxBendAngle) || 0)) / 38) * 0.26;
-    const wingCorner = isSamsungCard ? 6 : (isHuaweiCard ? 8 : 18);
-    const wingFill = isHuaweiCard ? '#3B1219' : (isPixelCard ? '#262B28' : (isSamsungCard ? '#1E2631' : '#1E293B'));
-    const wingStroke = isHuaweiCard ? '#D4AF37' : (isPixelCard ? '#8FA39A' : (isSamsungCard ? '#94A3B8' : '#CBD5E1'));
+    const wingCorner = isSamsungCard ? 6 : (isHuaweiCard ? 8 : (isHonourCard ? 12 : 18));
+    const wingFill = isHonourCard ? '#0D291E' : (isHuaweiCard ? '#3B1219' : (isPixelCard ? '#262B28' : (isSamsungCard ? '#1E2631' : '#1E293B')));
+    const wingStroke = isHonourCard ? '#E5C185' : (isHuaweiCard ? '#D4AF37' : (isPixelCard ? '#8FA39A' : (isSamsungCard ? '#94A3B8' : '#CBD5E1')));
 
     const safeTranslate = (tx, ty) => { if (typeof ctx.translate === 'function') ctx.translate(tx, ty); };
     const safeRotate = (ang) => { if (typeof ctx.rotate === 'function') ctx.rotate(ang); };
@@ -684,6 +687,24 @@
         if (ctx.roundRect) ctx.roundRect(-wW + 26, -wH / 2 + 30, wW - 56, 26, 13);
         else ctx.rect(-wW + 26, -wH / 2 + 30, wW - 56, 26);
         ctx.fill();
+      } else if (isHonourCard) {
+        // Honour V6: Signature Octagonal "Eye of Muse" Super-Steel & Gold Periscope Camera Dome
+        ctx.fillStyle = '#111827';
+        ctx.strokeStyle = '#E5C185';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        safeCircle(-wW / 2, -40, 34);
+        ctx.fill();
+        ctx.stroke();
+        [[-wW / 2 - 12, -50], [-wW / 2 + 12, -50], [-wW / 2, -28]].forEach(([lx, ly]) => {
+          ctx.beginPath();
+          safeCircle(lx, ly, 8);
+          ctx.fillStyle = '#020617';
+          ctx.fill();
+          ctx.strokeStyle = '#D4AF37';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        });
       } else {
         // Apple iPhone Duo (Standard & Dust): Sculpted square plateau + 2 diagonal/vertical sapphire lenses
         ctx.fillStyle = '#334155';
@@ -858,9 +879,9 @@
     ctx.fill();
     ctx.stroke();
 
-    const invoiceBrandUpper = isHuaweiCard ? 'HUAWEI' : (isPixelCard ? 'GOOGLE' : (isSamsungCard ? 'SAMSUNG' : 'APPLE'));
-    const carePlanLabel = isHuaweiCard ? 'Huawei Care+' : (isPixelCard ? 'Google Preferred Care' : (isSamsungCard ? 'Samsung Care+' : 'AppleCare+'));
-    const hashtagDevice = isHuaweiCard ? 'MateXTTriFold' : (isPixelCard ? 'Pixel10ProFold' : (isSamsungCard ? 'GalaxyZFold8' : 'iPhoneDuo'));
+    const invoiceBrandUpper = isHonourCard ? 'HONOUR' : (isHuaweiCard ? 'HUAWEI' : (isPixelCard ? 'GOOGLE' : (isSamsungCard ? 'SAMSUNG' : 'APPLE')));
+    const carePlanLabel = isHonourCard ? 'Honour Care+' : (isHuaweiCard ? 'Huawei Care+' : (isPixelCard ? 'Google Preferred Care' : (isSamsungCard ? 'Samsung Care+' : 'AppleCare+')));
+    const hashtagDevice = isHonourCard ? 'HonourV6' : (isHuaweiCard ? 'MateXTTriFold' : (isPixelCard ? 'Pixel10ProFold' : (isSamsungCard ? 'GalaxyZFold8' : 'iPhoneDuo')));
 
     ctx.font = 'bold 15px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = '#FCA5A5';
@@ -1114,6 +1135,7 @@
     const isSamsung = (metrics.tierId === 'titanium') || (metrics.deviceBrand === 'Samsung') || (metrics.displayName && metrics.displayName.includes('Samsung'));
     const isPixel = (metrics.tierId === 'pixel') || (metrics.deviceBrand === 'Google');
     const isHuawei = (metrics.tierId === 'trifold') || (metrics.deviceBrand === 'Huawei');
+    const isHonour = (metrics.tierId === 'honour') || (metrics.deviceBrand === 'Honour') || (metrics.deviceBrand === 'Honor');
     if (isSamsung) {
       setText('report-invoice-title', 'Samsung Care+ Out-of-Warranty Repair Invoice');
       setText('report-label-screen', 'Dynamic AMOLED 2X Inner Folding Display');
@@ -1132,6 +1154,12 @@
       setText('report-label-hinge', 'Ti-Alloy Dual-Track Opposing Hinges (×2)');
       setText('report-label-frame', '3.6mm Ultra-Thin Carbon-Gold Midframe');
       setText('report-label-battery', 'Tri-Cell Silicon-Carbon Battery Disposal');
+    } else if (isHonour) {
+      setText('report-invoice-title', 'Honour Care+ Apex Out-of-Warranty Repair Invoice');
+      setText('report-label-screen', 'NanoCrystal Shield Inner Folding OLED Display');
+      setText('report-label-hinge', '2100MPa Super-Steel Luban Hinge Assembly');
+      setText('report-label-frame', 'Aerospace Special Fiber & Steel Frame Alignment');
+      setText('report-label-battery', 'Dual Silicon-Carbon Battery Hazard Disposal');
     } else {
       setText('report-invoice-title', 'AppleCare+ Out-of-Warranty Repair Invoice');
       setText('report-label-screen', 'Inner Folding Nano-Texture OLED Display');
@@ -1308,7 +1336,7 @@
     { id: 'seed-4', name: 'GlassIsGlass', tierId: 'titanium', deviceModel: 'Samsung Galaxy Z Fold 8', snapTime: 10.60, peakCps: 14.6, maxBendAngle: 38, grade: 'A', isSeed: true },
     { id: 'seed-5', name: 'DeeperGrooves', tierId: 'pixel', deviceModel: 'Google Pixel 10 Pro Fold', snapTime: 11.25, peakCps: 13.2, maxBendAngle: 38, grade: 'A', isSeed: true },
     { id: 'seed-6', name: 'GreenLineHunter', tierId: 'trifold', deviceModel: 'Huawei Mate XT Tri-Fold', snapTime: 12.40, peakCps: 15.1, maxBendAngle: 38, grade: 'B', isSeed: true },
-    { id: 'seed-7', name: 'BenchBlade_99', tierId: 'standard', deviceModel: 'iPhone Duo', snapTime: 13.10, peakCps: 10.2, maxBendAngle: 38, grade: 'B', isSeed: true },
+    { id: 'seed-7', name: 'SuperSteel_V6', tierId: 'honour', deviceModel: 'Honour V6', snapTime: 13.10, peakCps: 15.8, maxBendAngle: 38, grade: 'B', isSeed: true },
     { id: 'seed-8', name: 'FlexHingeBreaker', tierId: 'titanium', deviceModel: 'Samsung Galaxy Z Fold 8', snapTime: 14.85, peakCps: 12.8, maxBendAngle: 38, grade: 'B', isSeed: true },
     { id: 'seed-9', name: 'SandInTheGears', tierId: 'dust', deviceModel: 'iPhone Duo (Dust-Jammed)', snapTime: 16.90, peakCps: 9.4, maxBendAngle: 38, grade: 'C', isSeed: true },
     { id: 'seed-10', name: 'AppleCareDenied', tierId: 'standard', deviceModel: 'iPhone Duo', snapTime: 19.45, peakCps: 7.6, maxBendAngle: 38, grade: 'C', isSeed: true }

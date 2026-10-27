@@ -1331,9 +1331,10 @@
       const isSamsungFold = (this._currentTierId === 'titanium');
       const isPixelFold = (this._currentTierId === 'pixel');
       const isTriFold = (this._currentTierId === 'trifold');
+      const isHonourV6 = (this._currentTierId === 'honour');
       const isDustDuo = (this._currentTierId === 'dust');
       const L = EDGE_WING_LEN; // 358px
-      const H = isTriFold ? 17 : (isSamsungFold ? 20 : (isPixelFold ? 21 : EDGE_RAIL_THICK));
+      const H = isHonourV6 ? 16 : (isTriFold ? 17 : (isSamsungFold ? 20 : (isPixelFold ? 21 : EDGE_RAIL_THICK)));
       const halfH = H / 2;
 
       ctx.save();
@@ -1461,6 +1462,39 @@
           ctx.beginPath();
           ctx.roundRect(242, halfH + 15.5, 70, 4.5, [0, 0, 3, 3]);
           ctx.fill();
+        } else if (isHonourV6) {
+          // HONOUR V6: Emerald-Obsidian Aerospace Carbon-Fiber Backplate + Octagonal "Eye of Muse" Super-Steel Camera Dome
+          const honourBackGrad = ctx.createLinearGradient(0, halfH, 0, halfH + 8);
+          honourBackGrad.addColorStop(0, '#133a2c');
+          honourBackGrad.addColorStop(1, '#091f17');
+          ctx.fillStyle = honourBackGrad;
+          ctx.beginPath();
+          ctx.moveTo(38, halfH - 0.5);
+          ctx.lineTo(44, halfH + 6.5);
+          ctx.lineTo(348, halfH + 6.5);
+          ctx.lineTo(354, halfH - 0.5);
+          ctx.closePath();
+          ctx.fill();
+
+          // Octagonal Super-Steel & Rose-Gold "Eye of Muse" Camera Dome (u = 205..336)
+          const domeGrad = ctx.createLinearGradient(205, halfH + 6, 336, halfH + 18);
+          domeGrad.addColorStop(0, '#e5c185');
+          domeGrad.addColorStop(0.5, '#9d7a46');
+          domeGrad.addColorStop(1, '#4f3a1d');
+          ctx.fillStyle = domeGrad;
+          ctx.beginPath();
+          ctx.moveTo(205, halfH + 6.0);
+          ctx.lineTo(220, halfH + 16.0);
+          ctx.lineTo(322, halfH + 16.0);
+          ctx.lineTo(336, halfH + 6.0);
+          ctx.closePath();
+          ctx.fill();
+
+          // Periscope Telephoto Sapphire Ring
+          ctx.fillStyle = '#0b1014';
+          ctx.beginPath();
+          ctx.roundRect(236, halfH + 15.0, 68, 4.8, [0, 0, 3, 3]);
+          ctx.fill();
         } else {
           // IPHONE DUO: Dark protruding sapphire camera lens rings underneath the sculpted white ceramic plateau
           const lenses = [
@@ -1554,6 +1588,13 @@
         bodyGrad.addColorStop(0.48, '#dfc07c');
         bodyGrad.addColorStop(Math.min(0.92, 0.82 + sheenShift), '#473312');
         bodyGrad.addColorStop(1, '#f3d99b');
+      } else if (isHonourV6) {
+        // Honour V6: 2100MPa Super-Steel & Emerald-Bronze rail
+        bodyGrad.addColorStop(0, '#e6f5ec');
+        bodyGrad.addColorStop(Math.max(0.08, 0.16 - sheenShift), '#274d3d');
+        bodyGrad.addColorStop(0.48, '#7ea894');
+        bodyGrad.addColorStop(Math.min(0.92, 0.82 + sheenShift), '#122920');
+        bodyGrad.addColorStop(1, '#d9c398');
       } else {
         // iPhone Duo: High-Gloss Obsidian-Titanium rail matching video frame
         bodyGrad.addColorStop(0, '#c8d0d6'); // Soft polished upper chamfer
@@ -2505,6 +2546,39 @@
       }
     }
 
+    /**
+     * Triggers the special Konami Code Super Destruction animation (Supernova shockwaves,
+     * branching plasma lightning arcs, flying golden hinge gears, and 999,999 Super Score banner).
+     */
+    triggerKonamiVisual() {
+      const spawnY = this._currentHingeY || EDGE_BASE_Y;
+      this._konamiExplosionTimer = 3.0;
+      this._snapShockwaveTimer = 0.55;
+      this.triggerTrauma(1.0);
+      this.addFloatingText('⚡ KONAMI CODE: 999,999 PTS SUPER DESTRUCTION! ⚡', 0, spawnY - 145, '#ffd60a');
+      this.addFloatingText('💥 9,999 N·m GOD-THUMB TORQUE • S+ GRADE 💥', 0, spawnY - 110, '#00ff66');
+      if (this.options.enableParticles) {
+        this.particlePool.spawn('shard', 0, spawnY - 16, 28);
+        this.particlePool.spawn('spark', 0, spawnY - 16, 28);
+        this.particlePool.spawn('dust', 0, spawnY, 32);
+      }
+      this._konamiGears = [];
+      for (let i = 0; i < 14; i++) {
+        const ang = -Math.PI * 0.15 - (i / 13) * Math.PI * 0.70;
+        const spd = 160 + (i % 5) * 55;
+        this._konamiGears.push({
+          x: (i % 2 === 0 ? -1 : 1) * (6 + i * 2),
+          y: spawnY - 10,
+          vx: Math.cos(ang) * spd * (i % 2 === 0 ? -1 : 1),
+          vy: Math.sin(ang) * spd - 90,
+          rot: i * 0.5,
+          vRot: (i % 2 === 0 ? 1 : -1) * (6 + i * 0.8),
+          r: 6 + (i % 3) * 3,
+          color: (i % 3 === 0) ? '#ffd60a' : ((i % 3 === 1) ? '#00ff66' : '#ff2d95')
+        });
+      }
+    }
+
     // =======================================================================
     // 4.9 MASTER FRAME RENDER PIPELINE
     // =======================================================================
@@ -2636,6 +2710,71 @@
         ctx.beginPath();
         ctx.arc(0, sy, radius, 0, Math.PI * 2);
         ctx.stroke();
+        ctx.restore();
+      }
+
+      // Special Konami Code Super Destruction Animation (Supernova Shockwaves + Plasma Arcs + Flying Hinge Gears)
+      if ((this._konamiExplosionTimer || 0) > 0 || (snapshot && snapshot.konamiActive)) {
+        if ((this._konamiExplosionTimer || 0) > 0) {
+          this._konamiExplosionTimer = Math.max(0, this._konamiExplosionTimer - dt);
+        }
+        const kProg = 1.0 - ((this._konamiExplosionTimer || 1.2) / 3.0);
+        const sy = this._currentHingeY || EDGE_BASE_Y;
+        ctx.save();
+
+        // 1. Triple Concentric Supernova Shockwaves (Gold, Emerald, Magenta)
+        const rings = [
+          { color: 'rgba(255, 214, 10, 0.75)', r: 30 + ((kProg * 420) % 360), w: 5.0 },
+          { color: 'rgba(0, 255, 102, 0.65)', r: 15 + (((kProg + 0.33) * 420) % 360), w: 3.5 },
+          { color: 'rgba(255, 45, 149, 0.65)', r: 45 + (((kProg + 0.66) * 420) % 360), w: 3.0 }
+        ];
+        for (let rIdx = 0; rIdx < rings.length; rIdx++) {
+          const rg = rings[rIdx];
+          ctx.strokeStyle = rg.color;
+          ctx.lineWidth = rg.w;
+          ctx.beginPath();
+          ctx.arc(0, sy, rg.r, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // 2. Branching High-Voltage Plasma Lightning Arcs Across the Broken Spine
+        const arcColors = ['#ffd60a', '#00ff66', '#64d2ff', '#ff2d95'];
+        for (let a = 0; a < 6; a++) {
+          const ang = (a / 6) * Math.PI * 2 + (this.shakeTime || 0) * 6.0;
+          ctx.strokeStyle = arcColors[a % arcColors.length];
+          ctx.lineWidth = 2.4;
+          ctx.beginPath();
+          ctx.moveTo(0, sy);
+          const midX = Math.cos(ang) * 75 + ((a % 2 === 0 ? 1 : -1) * 18);
+          const midY = sy + Math.sin(ang) * 55 - 14;
+          const endX = Math.cos(ang) * 165;
+          const endY = sy + Math.sin(ang) * 120;
+          ctx.lineTo(midX, midY);
+          ctx.lineTo(endX, endY);
+          ctx.stroke();
+        }
+
+        // 3. Flying Golden Hinge Micro-Gears & Shrapnel
+        if (Array.isArray(this._konamiGears)) {
+          for (let g = 0; g < this._konamiGears.length; g++) {
+            const gr = this._konamiGears[g];
+            gr.x += gr.vx * dt;
+            gr.y += gr.vy * dt;
+            gr.vy += 420 * dt;
+            gr.rot += gr.vRot * dt;
+            ctx.save();
+            ctx.translate(gr.x, gr.y);
+            ctx.rotate(gr.rot);
+            ctx.fillStyle = gr.color;
+            ctx.strokeStyle = '#111827';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(0, 0, gr.r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
         ctx.restore();
       }
 

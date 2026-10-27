@@ -60,13 +60,14 @@
     const btnReset = document.getElementById('btnReset');
     const captionPill = document.getElementById('caption-pill');
 
-    // Tier Selector Buttons (5 Foldable Smartphone Levels)
+    // Tier Selector Buttons (6 Foldable Smartphone Levels)
     const tierButtons = {
       standard: document.getElementById('tierStandard'),
       dust: document.getElementById('tierDust'),
       titanium: document.getElementById('tierTitanium'),
       pixel: document.getElementById('tierPixel'),
-      trifold: document.getElementById('tierTrifold')
+      trifold: document.getElementById('tierTrifold'),
+      honour: document.getElementById('tierHonour')
     };
 
     // Mobile Touch Zones
@@ -100,8 +101,8 @@
     } catch (_) {}
     let progressStorage = null;
     try { progressStorage = window.localStorage; } catch (_) {}
-    const tierOrder = ['standard', 'dust', 'titanium', 'pixel', 'trifold'];
-    const tierNames = ['Easy: iPhone Duo', 'Med: Dust-Jammed', 'Hard: Samsung Fold 8', 'Expert: Pixel 10 Fold', 'Boss: Mate XT Tri-Fold'];
+    const tierOrder = ['standard', 'dust', 'titanium', 'pixel', 'trifold', 'honour'];
+    const tierNames = ['Easy: iPhone Duo', 'Med: Dust-Jammed', 'Hard: Samsung Fold 8', 'Expert: Pixel 10 Fold', 'Boss: Mate XT Tri-Fold', 'Apex: Honour V6'];
     const progression = ui.createProgression(progressStorage, tierOrder);
     const leaderboard = (ui && typeof ui.createLeaderboard === 'function')
       ? ui.createLeaderboard(progressStorage)
@@ -184,7 +185,8 @@
           dust: 'iPhone Duo (Dust)',
           titanium: 'Samsung Fold 8',
           pixel: 'Pixel 10 Pro Fold',
-          trifold: 'Mate XT Tri-Fold'
+          trifold: 'Mate XT Tri-Fold',
+          honour: 'Honour V6'
         };
         brandDeviceName.textContent = modelMap[activeTierId] || 'iPhone Duo';
       }
@@ -195,7 +197,7 @@
         const topRecord = leaderboard ? leaderboard.getTop10(activeTierId)[0] : null;
         const recordText = topRecord ? ` · #1 Record: ${topRecord.snapTime.toFixed(2)}s (${topRecord.name})` : '';
         const goal = next < tierOrder.length ? ' · Win to advance to ' + tierNames[next]
-          : ' · All 5 Foldable Levels Unlocked!';
+          : ' · All 6 Foldable Levels Unlocked!';
         const saveNote = previewMode ? ' · Preview mode' : (!progression.isPersistent() ? ' · Session only' : '');
         progressStatus.textContent = 'Level ' + (activeIndex + 1) + ' / ' + tierOrder.length + ' · Personal Best: ' + bestText + recordText + goal + saveNote;
       }
@@ -375,6 +377,23 @@
 
       // Universal audio unlock
       unlockAudio();
+
+      // Check Konami Code sequence (↑↑↓↓←→←→BA or ↑↑↓↓ADAD)
+      if (typeof engine.checkKonamiKey === 'function') {
+        const konamiRes = engine.checkKonamiKey(e.code || e.key);
+        if (konamiRes && konamiRes.unlocked) {
+          e.preventDefault();
+          if (typeof progression.unlockAll === 'function') progression.unlockAll();
+          if (renderer && typeof renderer.triggerKonamiVisual === 'function') {
+            renderer.triggerKonamiVisual();
+          }
+          if (ui && ui.Captions && konamiRes.quip) {
+            ui.Captions.display(konamiRes.quip, 3);
+          }
+          updateTierButtonsUI(engine.currentTier.id);
+          return;
+        }
+      }
 
       if (e.code === 'Space') {
         e.preventDefault();
@@ -571,10 +590,38 @@
             if (tierId === 'titanium') ui.Captions.display("Level 3 (Hard): Samsung Galaxy Z Fold 8. Seven generations of Armor FlexHinge refinement... let's see if it survives.", 2);
             if (tierId === 'pixel') ui.Captions.display("Level 4 (Expert): Google Pixel 10 Pro Fold. Google left the antenna seam right beside the hinge again.", 2);
             if (tierId === 'trifold') ui.Captions.display("Level 5 (Boss): Huawei Mate XT Tri-Fold. A 3.6mm phone with two opposing hinges—twice the places to snap backwards.", 2);
+            if (tierId === 'honour') ui.Captions.display("Level 6 (Apex): Honour V6. 2100MPa Super-Steel Luban hinge and aerospace carbon fiber—the ultimate toughness boss.", 2);
           }
         });
       }
     });
+
+    // Mobile / Touch Konami Code Secret Trigger: 5 rapid taps on the JERRYRIG badge
+    const brandBadge = document.querySelector ? document.querySelector('.brand-badge') : null;
+    if (brandBadge) {
+      let badgeTapCount = 0;
+      let lastBadgeTapMs = 0;
+      brandBadge.style.cursor = 'pointer';
+      brandBadge.title = 'Konami Secret: ↑↑↓↓←→←→BA (or tap 5x)';
+      brandBadge.addEventListener('click', () => {
+        unlockAudio();
+        const nowMs = Date.now();
+        badgeTapCount = (nowMs - lastBadgeTapMs < 900) ? (badgeTapCount + 1) : 1;
+        lastBadgeTapMs = nowMs;
+        if (badgeTapCount >= 5 && typeof engine.triggerKonamiDestruction === 'function') {
+          badgeTapCount = 0;
+          if (typeof progression.unlockAll === 'function') progression.unlockAll();
+          const konamiRes = engine.triggerKonamiDestruction();
+          if (renderer && typeof renderer.triggerKonamiVisual === 'function') {
+            renderer.triggerKonamiVisual();
+          }
+          if (ui && ui.Captions && konamiRes && konamiRes.quip) {
+            ui.Captions.display(konamiRes.quip, 3);
+          }
+          updateTierButtonsUI(engine.currentTier.id);
+        }
+      });
+    }
 
     // Hear Quote Button & Subtitle Pill Click-to-Speak
     function triggerSpokenZackQuote() {

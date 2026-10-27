@@ -29,7 +29,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23153e28'/%3E%3Cpath d='M20 12h10v40H20z' fill='%238a8e94'/%3E%3Cpath d='M34 12h10v40H34z' fill='%238a8e94'/%3E%3Crect x='30' y='16' width='4' height='32' rx='2' fill='%23c9a444'/%3E%3Cpath d='M32 20v24' stroke='%2300ff66' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
 
   <!-- Stylesheet (strictly relative ./) -->
-  <link rel="stylesheet" href="./styles.css?v=7">
+  <link rel="stylesheet" href="./styles.css?v=8">
 </head>
 <body>
   <div id="appContainer">
@@ -141,7 +141,7 @@
 
     <!-- Bottom Arcade Control Toolbar -->
     <footer class="arcade-footer">
-      <!-- 5 Foldable Smartphone Levels -->
+      <!-- 6 Foldable Smartphone Levels -->
       <div class="tier-selector-group">
         <button id="tierStandard" class="tier-btn active standard tier difficulty" data-tier="standard">
           <span class="tier-dot"></span>
@@ -163,9 +163,13 @@
           <span class="tier-dot"></span>
           <span>L5: Mate XT Tri-Fold</span><span id="lockTrifold" class="tier-lock" aria-hidden="true">🔒</span>
         </button>
+        <button id="tierHonour" class="tier-btn honour tier difficulty" data-tier="honour">
+          <span class="tier-dot"></span>
+          <span>L6: Honour V6</span><span id="lockHonour" class="tier-lock" aria-hidden="true">🔒</span>
+        </button>
       </div>
 
-      <div id="progressStatus" class="progress-status" role="status" aria-live="polite">Level 1 / 5 · Best: — · Click any phone or win to advance</div>
+      <div id="progressStatus" class="progress-status" role="status" aria-live="polite">Level 1 / 6 · Best: — · Click any phone or win to advance</div>
 
       <!-- Action Buttons -->
       <div class="footer-actions">
@@ -284,7 +288,7 @@
         <div class="report-header">
           <div class="report-titles">
             <h2 id="leaderboardTitle">🏆 Top 10 Bend Test High Scores</h2>
-            <p>Fastest Structural Snap Times &amp; Peak CPS Across All 5 Foldable Levels</p>
+            <p>Fastest Structural Snap Times &amp; Peak CPS Across All 6 Foldable Levels</p>
           </div>
           <button id="btnCloseLeaderboard" class="btn-icon" aria-label="Close Top 10 High Scores">✕</button>
         </div>
@@ -305,6 +309,7 @@
           <button class="tier-btn lb-filter-btn" data-lb-tier="titanium">L3: Fold 8</button>
           <button class="tier-btn lb-filter-btn" data-lb-tier="pixel">L4: Pixel Fold</button>
           <button class="tier-btn lb-filter-btn" data-lb-tier="trifold">L5: Mate XT</button>
+          <button class="tier-btn lb-filter-btn" data-lb-tier="honour">L6: Honour V6</button>
         </div>
 
         <div class="leaderboard-table-wrap">
@@ -335,10 +340,10 @@
   </div>
 
   <!-- Scripts: Strictly Relative ./ Paths (Zero External Bundlers or CDNs) -->
-  <script src="./js/engine.js?v=7"></script>
-  <script src="./js/canvas.js?v=7"></script>
-  <script src="./js/audio.js?v=7"></script>
-  <script src="./js/ui.js?v=7"></script>
-  <script src="./js/main.js?v=7"></script>
+  <script src="./js/engine.js?v=8"></script>
+  <script src="./js/canvas.js?v=8"></script>
+  <script src="./js/audio.js?v=8"></script>
+  <script src="./js/ui.js?v=8"></script>
+  <script src="./js/main.js?v=8"></script>
 </body>
 </html>

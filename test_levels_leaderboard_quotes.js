@@ -5,13 +5,14 @@ const Renderer = require('./js/canvas');
 const Audio = require('./js/audio');
 const UI = require('./js/ui');
 
-// 1. Verify all 5 foldable smartphone levels in Engine and Renderer
+// 1. Verify all 6 foldable smartphone levels in Engine and Renderer (including Honour V6 at the top)
 const expectedLevels = [
   { num: 1, id: 'standard', model: 'iPhone Duo' },
   { num: 2, id: 'dust', model: 'iPhone Duo (Dust-Jammed)' },
   { num: 3, id: 'titanium', model: 'Samsung Galaxy Z Fold 8' },
   { num: 4, id: 'pixel', model: 'Google Pixel 10 Pro Fold' },
-  { num: 5, id: 'trifold', model: 'Huawei Mate XT Tri-Fold' }
+  { num: 5, id: 'trifold', model: 'Huawei Mate XT Tri-Fold' },
+  { num: 6, id: 'honour', model: 'Honour V6' }
 ];
 
 const engine = new Engine({ interactiveAssist: true, runDuration: 25, enableAudio: false, enableHaptics: false });
@@ -168,4 +169,25 @@ const handledInInput = engine.handleKeyDown({
 assert.strictEqual(handledInInput, false, 'engine.handleKeyDown must ignore keystrokes inside <input> elements');
 assert.strictEqual(engine.totalTaps, tapsBeforeInput, 'Typing inside <input> must not register game taps');
 
-console.log('All 5 foldable levels, Top 10 High Score Leaderboard, audible 5laDGy4INB0 quotes, dynamic cards, and 10 gameplay/graphics improvements verified.');
+// 8. Verify Level 6 (Honour V6) Top Toughness & Konami Code Super Destruction
+engine.resetGame();
+engine.setTier('honour');
+assert.strictEqual(engine.currentTier.id, 'honour', 'Honour V6 must be selectable via setTier("honour")');
+assert(engine.currentTier.yieldThreshold > Engine.DIFFICULTY_TIERS.trifold.yieldThreshold, 'Honour V6 must have the highest yieldThreshold of any phone');
+assert(engine.currentTier.decayRate > Engine.DIFFICULTY_TIERS.trifold.decayRate, 'Honour V6 must have the highest decayRate of any phone');
+
+const konamiKeys = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
+let konamiResult = null;
+for (const k of konamiKeys) {
+  konamiResult = engine.checkKonamiKey(k);
+}
+assert(konamiResult && konamiResult.unlocked && engine.konamiActive, 'Classic Konami Code sequence must unlock Konami Super Destruction');
+assert.strictEqual(konamiResult.superScore, 999999, 'Konami Code must award 999,999 Super Score');
+const konamiReport = engine.getReportCardData();
+assert.strictEqual(konamiReport.grade, 'S+', 'Konami Super Destruction must award S+ grade');
+assert.strictEqual(konamiReport.billBreakdown.totalBill, 9999, 'Konami Super Destruction must generate $9,999 total annihilation repair bill');
+
+renderer.triggerKonamiVisual();
+assert(renderer._konamiExplosionTimer > 0 && Array.isArray(renderer._konamiGears) && renderer._konamiGears.length === 14, 'Renderer triggerKonamiVisual must spawn supernova shockwave and flying hinge gears');
+
+console.log('All 6 foldable levels (including Honour V6), Konami Code Super Destruction, Top 10 High Score Leaderboard, audible 5laDGy4INB0 quotes, and dynamic cards verified.');
