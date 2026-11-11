@@ -149,6 +149,7 @@
           textAlign: 'left',
           textBaseline: 'alphabetic',
           globalAlpha: 1.0,
+          globalCompositeOperation: 'source-over',
           shadowColor: 'transparent',
           shadowBlur: 0,
           shadowOffsetX: 0,
@@ -245,7 +246,7 @@
   // =========================================================================
 
   class ParticlePool {
-    constructor(maxParticles = 220) {
+    constructor(maxParticles = 300) {
       this.maxParticles = maxParticles;
       this.particles = [];
       for (let i = 0; i < maxParticles; i++) {
@@ -264,7 +265,9 @@
           life: 0,
           maxLife: 1,
           color: '#ffffff',
-          alpha: 1.0
+          alpha: 1.0,
+          bounced: false,
+          phase: 0
         });
       }
     }
@@ -281,27 +284,37 @@
           p.prevX = p.x;
           p.prevY = p.y;
           p.life = 0;
+          p.bounced = false;
+          p.phase = Math.random() * Math.PI * 2;
 
           if (type === 'shard') {
-            const angle = -Math.PI / 2 + (Math.random() - 0.5) * 2.2;
-            const speed = 130 + Math.random() * 280;
+            const angle = -Math.PI / 2 + (Math.random() - 0.5) * 2.25;
+            const speed = 135 + Math.random() * 295;
             p.vx = Math.cos(angle) * speed;
-            p.vy = Math.sin(angle) * speed - 60;
-            p.size = 3 + Math.random() * 6.5;
+            p.vy = Math.sin(angle) * speed - 65;
+            p.size = 3.2 + Math.random() * 6.8;
             p.rotation = Math.random() * Math.PI * 2;
-            p.vRot = (Math.random() - 0.5) * 18;
-            p.maxLife = 0.6 + Math.random() * 0.6;
-            p.color = 'rgba(235, 248, 255, 0.90)';
+            p.vRot = (Math.random() - 0.5) * 20;
+            p.maxLife = 0.65 + Math.random() * 0.65;
+            p.color = Math.random() < 0.35 ? 'rgba(210, 242, 255, 0.92)' : 'rgba(242, 250, 255, 0.92)';
           } else if (type === 'spark') {
-            const angle = -Math.PI / 2 + (Math.random() - 0.5) * 2.0;
-            const speed = 220 + Math.random() * 440;
+            const angle = -Math.PI / 2 + (Math.random() - 0.5) * 2.15;
+            const speed = 230 + Math.random() * 460;
             p.vx = Math.cos(angle) * speed;
-            p.vy = Math.sin(angle) * speed;
-            p.size = 1.6 + Math.random() * 2.6;
+            p.vy = Math.sin(angle) * speed - 40;
+            p.size = 1.6 + Math.random() * 2.5;
             p.rotation = 0;
             p.vRot = 0;
-            p.maxLife = 0.18 + Math.random() * 0.28;
-            p.color = Math.random() < 0.6 ? PALETTE.sparkYellow : PALETTE.sparkCyan;
+            p.maxLife = 0.24 + Math.random() * 0.36;
+            p.color = Math.random() < 0.65 ? PALETTE.sparkYellow : (Math.random() < 0.5 ? '#ff9f43' : PALETTE.sparkCyan);
+          } else if (type === 'smoke') {
+            p.vx = (Math.random() - 0.5) * 26;
+            p.vy = -(38 + Math.random() * 52);
+            p.size = 7 + Math.random() * 11;
+            p.rotation = Math.random() * Math.PI * 2;
+            p.vRot = (Math.random() - 0.5) * 1.4;
+            p.maxLife = 0.95 + Math.random() * 0.85;
+            p.color = Math.random() < 0.3 ? 'rgba(220, 230, 242, 0.42)' : 'rgba(168, 178, 192, 0.38)';
           } else if (type === 'dust') {
             const angle = Math.random() * Math.PI * 2;
             const speed = 25 + Math.random() * 75;
@@ -319,6 +332,7 @@
     }
 
     update(dt) {
+      const benchPlaneY = 72;
       for (let i = 0; i < this.particles.length; i++) {
         const p = this.particles[i];
         if (!p.active) continue;
@@ -335,13 +349,34 @@
         p.y += p.vy * dt;
 
         if (p.type === 'shard') {
-          p.vy += 550 * dt;
+          p.vy += 580 * dt;
           p.rotation += p.vRot * dt;
+          if (!p.bounced && p.y > benchPlaneY && p.vy > 0) {
+            p.y = benchPlaneY;
+            p.vy = -p.vy * 0.36;
+            p.vx *= 0.72;
+            p.bounced = true;
+          }
           p.alpha = Math.max(0, 1.0 - (p.life / p.maxLife));
         } else if (p.type === 'spark') {
-          p.vy += 350 * dt;
-          p.vx *= Math.pow(0.1, dt);
+          p.vy += 520 * dt;
+          p.vx *= Math.pow(0.22, dt);
+          // Realistic incandescent spark bounce off the studio cutting mat
+          if (!p.bounced && p.y > benchPlaneY && p.vy > 30) {
+            p.y = benchPlaneY;
+            p.vy = -p.vy * (0.42 + (i % 3) * 0.08);
+            p.vx = p.vx * 0.8 + ((i % 2 === 0 ? 1 : -1) * 35);
+            p.bounced = true;
+          }
           p.alpha = Math.max(0, 1.0 - (p.life / p.maxLife));
+        } else if (p.type === 'smoke') {
+          // Volumetric turbulent curl drift & thermal buoyancy
+          p.x += Math.sin(p.life * 6.5 + p.phase) * 22 * dt;
+          p.vy -= 14 * dt;
+          p.size += 26 * dt;
+          const lifeRatio = p.life / p.maxLife;
+          const fadeIn = Math.min(1.0, lifeRatio / 0.18);
+          p.alpha = Math.max(0, fadeIn * (1.0 - lifeRatio) * 0.42);
         } else if (p.type === 'dust') {
           p.size += 28 * dt;
           p.alpha = Math.max(0, (1.0 - (p.life / p.maxLife)) * 0.52);
@@ -362,20 +397,51 @@
           ctx.rotate(p.rotation);
           ctx.fillStyle = p.color;
           ctx.beginPath();
-          ctx.moveTo(-p.size, -p.size * 0.6);
-          ctx.lineTo(p.size, 0);
-          ctx.lineTo(-p.size * 0.2, p.size);
+          ctx.moveTo(-p.size, -p.size * 0.58);
+          ctx.lineTo(p.size * 0.95, -p.size * 0.12);
+          ctx.lineTo(p.size * 0.35, p.size * 0.72);
+          ctx.lineTo(-p.size * 0.42, p.size * 0.88);
           ctx.closePath();
           ctx.fill();
+          // Rotating Fresnel specular glint on flying Ultra-Thin Glass shard
+          const glint = 0.35 + 0.65 * Math.abs(Math.cos(p.rotation * 2.0));
+          ctx.strokeStyle = `rgba(255, 255, 255, ${glint.toFixed(2)})`;
+          ctx.lineWidth = 0.85;
+          ctx.beginPath();
+          ctx.moveTo(-p.size, -p.size * 0.58);
+          ctx.lineTo(p.size * 0.95, -p.size * 0.12);
+          ctx.stroke();
         } else if (p.type === 'spark') {
+          ctx.lineCap = 'round';
           ctx.strokeStyle = p.color;
-          ctx.lineWidth = p.size;
+          ctx.lineWidth = p.size * 1.15;
           ctx.shadowColor = p.color;
-          ctx.shadowBlur = 6;
+          ctx.shadowBlur = 7;
           ctx.beginPath();
           ctx.moveTo(p.prevX, p.prevY);
           ctx.lineTo(p.x, p.y);
           ctx.stroke();
+          // Hot white incandescent core at leading tip
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, Math.max(0.8, p.size * 0.52), 0, Math.PI * 2);
+          ctx.fill();
+        } else if (p.type === 'smoke') {
+          const sGrad = ctx.createRadialGradient(p.x, p.y, p.size * 0.08, p.x, p.y, p.size);
+          if (p.life < 0.24) {
+            // Warm thermal runaway ember tint near hinge origin
+            sGrad.addColorStop(0, 'rgba(255, 176, 92, 0.55)');
+            sGrad.addColorStop(0.42, p.color);
+          } else {
+            sGrad.addColorStop(0, p.color);
+            sGrad.addColorStop(0.55, 'rgba(135, 145, 160, 0.22)');
+          }
+          sGrad.addColorStop(1, 'rgba(120, 130, 145, 0)');
+          ctx.fillStyle = sGrad;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
         } else if (p.type === 'dust') {
           const grad = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, p.size);
           grad.addColorStop(0, p.color);
@@ -450,7 +516,9 @@
       this.floatingLabels = [];
 
       // Particle system (Pass 6 & 8)
-      this.particlePool = new ParticlePool(220);
+      this.particlePool = new ParticlePool(300);
+      this._smokeEmitAccum = 0.0;
+      this._xrayCutawayTimer = 0.0;
 
       // Procedural glass fracture trees
       this._initGlassFractures();
@@ -604,29 +672,47 @@
     // =======================================================================
 
     _renderCuttingMat(ctx, viewLeft, viewTop, viewRight, viewBottom) {
-      // 1. Matte Off-White Studio Workbench Surface (matching reference video frame)
-      const baseGrad = ctx.createRadialGradient(-40, -120, 80, 0, 0, Math.max(VIRTUAL_WIDTH, VIRTUAL_HEIGHT) * 0.9);
-      baseGrad.addColorStop(0, PALETTE.matLight);
-      baseGrad.addColorStop(0.65, PALETTE.matBase);
+      // 1. Matte Off-White Studio Workbench Surface with Dual Overhead Softbox Keylight
+      const baseGrad = ctx.createRadialGradient(-35, -135, 60, 0, 0, Math.max(VIRTUAL_WIDTH, VIRTUAL_HEIGHT) * 0.92);
+      baseGrad.addColorStop(0, '#fcfbf9');
+      baseGrad.addColorStop(0.28, PALETTE.matLight);
+      baseGrad.addColorStop(0.68, PALETTE.matBase);
       baseGrad.addColorStop(1, PALETTE.matDark);
 
       ctx.fillStyle = baseGrad;
       ctx.fillRect(viewLeft, viewTop, viewRight - viewLeft, viewBottom - viewTop);
 
-      // 2. Subtle Razor Scuffs on Workbench
+      // 1B. Overhead Studio Softbox Specular Reflection Cone on Matte Laminate
+      const softboxPool = ctx.createLinearGradient(-280, -390, 220, 260);
+      softboxPool.addColorStop(0, 'rgba(255, 255, 255, 0.24)');
+      softboxPool.addColorStop(0.45, 'rgba(255, 252, 246, 0.09)');
+      softboxPool.addColorStop(1, 'rgba(180, 174, 164, 0.06)');
+      ctx.fillStyle = softboxPool;
+      ctx.fillRect(viewLeft, viewTop, viewRight - viewLeft, viewBottom - viewTop);
+
+      // 2. Directional Twin-Bevel Razor Scuffs on Workbench (shadow groove + catchlight lip)
       for (let i = 0; i < this.matScoreMarks.length; i++) {
         const c = this.matScoreMarks[i];
         ctx.strokeStyle = PALETTE.cutDark;
-        ctx.lineWidth = 1.0;
+        ctx.lineWidth = 1.05;
         ctx.beginPath();
         ctx.moveTo(c.x0, c.y0);
         ctx.lineTo(c.x1, c.y1);
         ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.42)';
+        ctx.lineWidth = 0.65;
+        ctx.beginPath();
+        ctx.moveTo(c.x0 + 0.7, c.y0 - 0.7);
+        ctx.lineTo(c.x1 + 0.7, c.y1 - 0.7);
+        ctx.stroke();
       }
 
-      // 3. Scattered Stray Dirt & Sand Specks on White Tabletop
+      // 3. Scattered Stray Dirt & Sand Specks on White Tabletop with micro contact shadow
       for (let i = 0; i < this.tableGritSpecks.length; i++) {
         const sp = this.tableGritSpecks[i];
+        ctx.fillStyle = 'rgba(24, 18, 12, 0.14)';
+        ctx.fillRect(sp.x + 0.7, sp.y + 0.8, sp.r, sp.r);
         ctx.fillStyle = sp.color;
         ctx.fillRect(sp.x, sp.y, sp.r, sp.r);
       }
@@ -816,6 +902,16 @@
       ctx.arc(-95, 35, 65, 0, Math.PI * 2);
       ctx.fill();
 
+      // Diagonal Studio Softbox Glass Specular Band across the Secondary Phone Screen
+      const glassSweep = ctx.createLinearGradient(-220, -210, 90, 80);
+      glassSweep.addColorStop(0, 'rgba(255, 255, 255, 0)');
+      glassSweep.addColorStop(0.44, 'rgba(255, 255, 255, 0.04)');
+      glassSweep.addColorStop(0.50, 'rgba(255, 255, 255, 0.24)');
+      glassSweep.addColorStop(0.56, 'rgba(255, 255, 255, 0.04)');
+      glassSweep.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = glassSweep;
+      ctx.fillRect(-240, -250, 340, 420);
+
       ctx.restore();
       ctx.restore();
 
@@ -913,6 +1009,20 @@
       ctx.roundRect(-18, -78, 36, 35, [6, 6, 0, 0]);
       ctx.fill();
 
+      // Knurled steel flint spark wheel & flame hood slot
+      ctx.fillStyle = '#30363e';
+      ctx.beginPath();
+      ctx.arc(-11, -56, 7.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#cfd6e0';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      ctx.fillStyle = '#1b1f24';
+      ctx.beginPath();
+      ctx.roundRect(-6, -73, 16, 6, 2.5);
+      ctx.fill();
+
       ctx.fillStyle = '#ff1e1e';
       ctx.beginPath();
       ctx.roundRect(-22, -56, 14, 14, 4);
@@ -928,6 +1038,89 @@
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('BiC', -1, -30);
+
+      ctx.restore();
+
+      // =====================================================================
+      // 5. LEFT-EDGE PROP: ZACK'S MACHINED BLACK/TITANIUM UTILITY RAZOR KNIFE
+      //    (Matches interactive Mohs Scratch Test click zone at left bench!)
+      // =====================================================================
+      ctx.save();
+      ctx.translate(-565, -18);
+      ctx.rotate(0.46);
+
+      ctx.shadowColor = 'rgba(18, 14, 10, 0.34)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetX = 4;
+      ctx.shadowOffsetY = 6;
+
+      // Exposed Heavy-Duty Trapezoid Razor Blade (pointing toward workbench center)
+      const bladeGrad = ctx.createLinearGradient(58, -14, 122, 12);
+      bladeGrad.addColorStop(0, '#eef4fa');
+      bladeGrad.addColorStop(0.45, '#b8c3d0');
+      bladeGrad.addColorStop(0.82, '#7d8896');
+      bladeGrad.addColorStop(1, '#dce5ef');
+      ctx.fillStyle = bladeGrad;
+      ctx.beginPath();
+      ctx.moveTo(52, -10);
+      ctx.lineTo(104, -10);
+      ctx.lineTo(126, 8);
+      ctx.lineTo(52, 9);
+      ctx.closePath();
+      ctx.fill();
+
+      // Honed double-bevel cutting edge catchlight along bottom of blade
+      ctx.shadowColor = 'transparent';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.moveTo(54, 7.8);
+      ctx.lineTo(124, 7.2);
+      ctx.stroke();
+
+      // Brushed Stainless Blade-Holder Head & Brass Thumb Stud
+      const headGrad = ctx.createLinearGradient(12, -14, 62, 14);
+      headGrad.addColorStop(0, '#8d96a3');
+      headGrad.addColorStop(0.5, '#4b525c');
+      headGrad.addColorStop(1, '#262b32');
+      ctx.fillStyle = headGrad;
+      ctx.beginPath();
+      ctx.roundRect(14, -13, 46, 25, 4);
+      ctx.fill();
+
+      // Anodized Matte-Black Ergonomic Handle Scales
+      const handleGrad = ctx.createLinearGradient(-130, -18, 20, 18);
+      handleGrad.addColorStop(0, '#323741');
+      handleGrad.addColorStop(0.45, '#191c22');
+      handleGrad.addColorStop(1, '#0d0f13');
+      ctx.fillStyle = handleGrad;
+      ctx.beginPath();
+      ctx.roundRect(-132, -16, 154, 31, 8);
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(215, 225, 238, 0.35)';
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.roundRect(-131, -15, 152, 29, 7.5);
+      ctx.stroke();
+
+      // Machined grip ribs & titanium pivot Torx screw
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+      ctx.lineWidth = 1.5;
+      for (let k = -98; k <= -26; k += 12) {
+        ctx.beginPath();
+        ctx.moveTo(k, -10);
+        ctx.lineTo(k - 5, 10);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#d4af37';
+      ctx.beginPath();
+      ctx.arc(10, -0.5, 4.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#181b20';
+      ctx.beginPath();
+      ctx.arc(10, -0.5, 1.8, 0, Math.PI * 2);
+      ctx.fill();
 
       ctx.restore();
 
@@ -1109,8 +1302,19 @@
       ctx.fillStyle = lPad; ctx.fillRect(-252, -63, 82, 80);
       ctx.restore();
 
-      // Knuckle Blanching & Joint Crease on Left Index Finger
+      // Knuckle Blanching, Subsurface Scattering Rim & Rear Fingernail Edge on Left Index Finger
       this._drawBlanchingPressureNode(ctx, -315, -36, 26, 14, Math.min(1.0, leftStrain + lFlex * 0.45));
+      ctx.strokeStyle = 'rgba(232, 92, 58, 0.24)';
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
+      ctx.moveTo(-360, -65);
+      ctx.quadraticCurveTo(-270, -62, -198, -42);
+      ctx.stroke();
+      // Subtle translucent keratin fingernail sliver on the curled rear index fingertip
+      ctx.fillStyle = 'rgba(246, 214, 198, 0.42)';
+      ctx.beginPath();
+      ctx.ellipse(-194, -24, 8.5, 4.2, 0.28, 0, Math.PI * 2);
+      ctx.fill();
       ctx.strokeStyle = 'rgba(98, 46, 24, 0.32)';
       ctx.lineWidth = 1.4;
       ctx.beginPath();
@@ -1202,8 +1406,19 @@
       ctx.fillStyle = rPad; ctx.fillRect(174, -65, 82, 80);
       ctx.restore();
 
-      // Knuckle Blanching & Joint Crease on Right Index Finger
+      // Knuckle Blanching, Subsurface Scattering Rim & Rear Fingernail Edge on Right Index Finger
       this._drawBlanchingPressureNode(ctx, 315, -38, 26, 14, Math.min(1.0, rightStrain + rFlex * 0.45));
+      ctx.strokeStyle = 'rgba(232, 92, 58, 0.24)';
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
+      ctx.moveTo(360, -69);
+      ctx.quadraticCurveTo(270, -66, 202, -44);
+      ctx.stroke();
+      // Subtle translucent keratin fingernail sliver on the curled rear index fingertip
+      ctx.fillStyle = 'rgba(246, 214, 198, 0.42)';
+      ctx.beginPath();
+      ctx.ellipse(198, -25, 8.5, 4.2, -0.28, 0, Math.PI * 2);
+      ctx.fill();
       ctx.strokeStyle = 'rgba(98, 48, 26, 0.32)';
       ctx.lineWidth = 1.4;
       ctx.beginPath();
@@ -1294,24 +1509,46 @@
     /** Draw the fixed hinge pin across the lower corners of both wings. */
     _renderHingeBridge(ctx, hingeY, wingAngle) {
       const isSamsung = this._currentTierId === 'titanium';
+      const isPixel = this._currentTierId === 'pixel';
+      const isTriFold = this._currentTierId === 'trifold';
+      const isHonour = this._currentTierId === 'honour';
       const pinY = hingeY + EDGE_RAIL_THICK / 2 - 3.5;
-      const pinW = 8 + Math.sin(wingAngle) * 3;
+      const pinW = 8.5 + Math.sin(wingAngle) * 3.2;
       ctx.save();
       ctx.translate(0, pinY);
       // Under-cut provides a small contact shadow, not a floating gap.
-      ctx.fillStyle = 'rgba(10, 12, 15, 0.65)';
-      ctx.beginPath(); ctx.roundRect(-pinW - 1, 0, pinW * 2 + 2, 5, 2); ctx.fill();
+      ctx.fillStyle = 'rgba(10, 12, 15, 0.68)';
+      ctx.beginPath(); ctx.roundRect(-pinW - 1, 0, pinW * 2 + 2, 5.2, 2); ctx.fill();
       const pin = ctx.createLinearGradient(0, -3, 0, 4);
-      pin.addColorStop(0, isSamsung ? '#b7c2cb' : '#b9c1c8');
-      pin.addColorStop(0.45, isSamsung ? '#68727c' : '#242a30');
-      pin.addColorStop(1, isSamsung ? '#414950' : '#0f1114');
+      if (isHonour) {
+        pin.addColorStop(0, '#e6f5ec');
+        pin.addColorStop(0.45, '#3b6a56');
+        pin.addColorStop(1, '#12261e');
+      } else if (isTriFold) {
+        pin.addColorStop(0, '#fff0c2');
+        pin.addColorStop(0.45, '#b88e3d');
+        pin.addColorStop(1, '#4c3610');
+      } else if (isPixel) {
+        pin.addColorStop(0, '#ecefe9');
+        pin.addColorStop(0.45, '#7e8680');
+        pin.addColorStop(1, '#363b38');
+      } else {
+        pin.addColorStop(0, isSamsung ? '#b7c2cb' : '#b9c1c8');
+        pin.addColorStop(0.45, isSamsung ? '#68727c' : '#242a30');
+        pin.addColorStop(1, isSamsung ? '#414950' : '#0f1114');
+      }
       ctx.fillStyle = pin;
       ctx.beginPath(); ctx.roundRect(-pinW, -3, pinW * 2, 5.5, 1.8); ctx.fill();
-      ctx.strokeStyle = 'rgba(241, 246, 249, 0.45)'; ctx.lineWidth = 0.7;
+      ctx.strokeStyle = isTriFold ? 'rgba(255, 244, 198, 0.65)' : (isHonour ? 'rgba(229, 193, 133, 0.62)' : 'rgba(241, 246, 249, 0.48)');
+      ctx.lineWidth = 0.75;
       ctx.beginPath(); ctx.moveTo(-pinW + 1, -2); ctx.lineTo(pinW - 1, -2); ctx.stroke();
-      // Two dark joints read as moving knuckles rather than a split frame.
-      ctx.strokeStyle = 'rgba(18, 22, 27, 0.72)'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(-3, -1.5); ctx.lineTo(-3, 1.5); ctx.moveTo(3, -1.5); ctx.lineTo(3, 1.5); ctx.stroke();
+      // Precision Luban / Dual-Cam micro-knuckle joints
+      ctx.strokeStyle = 'rgba(18, 22, 27, 0.75)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-3.2, -1.6); ctx.lineTo(-3.2, 1.6); ctx.moveTo(3.2, -1.6); ctx.lineTo(3.2, 1.6); ctx.stroke();
+      if (isHonour) {
+        ctx.fillStyle = '#e5c185';
+        ctx.fillRect(-1.2, -1.2, 2.4, 1.8);
+      }
       ctx.restore();
     }
 
@@ -1392,11 +1629,13 @@
             ctx.beginPath();
             ctx.roundRect(ln.u0 + 1, halfH + 13.0, w - 2, ln.depth - 1.2, [0, 0, 2, 2]);
             ctx.fill();
-            // Polished top bevel, narrow shadow and anti-reflective coating.
-            ctx.fillStyle = 'rgba(224, 231, 239, 0.38)';
-            ctx.fillRect(ln.u0, halfH + 12.5, w, 0.8);
-            ctx.fillStyle = 'rgba(90, 145, 195, 0.32)';
-            ctx.fillRect(ln.u0 + 6, halfH + 15.0, w * 0.35, 1.2);
+            // Polished top bevel, narrow shadow and multi-coated sapphire AR reflections.
+            ctx.fillStyle = 'rgba(224, 231, 239, 0.42)';
+            ctx.fillRect(ln.u0, halfH + 12.5, w, 0.85);
+            ctx.fillStyle = 'rgba(72, 182, 255, 0.36)';
+            ctx.fillRect(ln.u0 + 5, halfH + 14.8, w * 0.34, 1.3);
+            ctx.fillStyle = 'rgba(176, 112, 255, 0.28)';
+            ctx.fillRect(ln.u0 + w * 0.56, halfH + 15.2, w * 0.24, 1.1);
             ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
             ctx.fillRect(ln.u0 + 1, halfH + 12.8 + ln.depth, w - 2, 1.0);
           }
@@ -1423,12 +1662,22 @@
           ctx.beginPath();
           ctx.roundRect(188, halfH + 5.5, 150, 11.5, [0, 0, 5, 5]);
           ctx.fill();
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.52)';
+          ctx.lineWidth = 0.8;
+          ctx.beginPath();
+          ctx.moveTo(190, halfH + 6.2);
+          ctx.lineTo(336, halfH + 6.2);
+          ctx.stroke();
 
-          // Dark Pill Cutout Window along Visor Bottom Edge
+          // Dark Pill Cutout Window along Visor Bottom Edge + Multi-Coated Sapphire Sensor Glints
           ctx.fillStyle = '#0e1116';
           ctx.beginPath();
           ctx.roundRect(204, halfH + 13.5, 118, 3.8, [0, 0, 3, 3]);
           ctx.fill();
+          ctx.fillStyle = 'rgba(84, 196, 255, 0.42)';
+          ctx.fillRect(216, halfH + 14.5, 22, 1.4);
+          ctx.fillStyle = 'rgba(164, 118, 255, 0.36)';
+          ctx.fillRect(276, halfH + 14.5, 28, 1.4);
         } else if (isTriFold) {
           // HUAWEI MATE XT TRI-FOLD: Crimson Red Vegan-Leather Backplate + Gold Star-Diamond Octagon Camera Housing
           const leatherGrad = ctx.createLinearGradient(0, halfH, 0, halfH + 8);
@@ -1442,6 +1691,11 @@
           ctx.lineTo(354, halfH - 0.5);
           ctx.closePath();
           ctx.fill();
+          // Fine pebble-grain vegan leather micro-texture
+          ctx.fillStyle = 'rgba(255, 190, 185, 0.12)';
+          for (let lu = 48; lu < 344; lu += 7) {
+            ctx.fillRect(lu, halfH + 2.2 + ((lu % 3) * 1.1), 2.2, 1.1);
+          }
 
           // Octagonal Champagne-Gold Star-Cut Camera Base (u = 212..342)
           const octGrad = ctx.createLinearGradient(212, halfH + 7, 342, halfH + 18);
@@ -1456,12 +1710,21 @@
           ctx.lineTo(342, halfH + 7.0);
           ctx.closePath();
           ctx.fill();
+          // Star-Diamond gold facet ridge lines
+          ctx.strokeStyle = 'rgba(255, 248, 214, 0.55)';
+          ctx.lineWidth = 0.85;
+          ctx.beginPath();
+          ctx.moveTo(246, halfH + 7.2); ctx.lineTo(254, halfH + 16.2);
+          ctx.moveTo(308, halfH + 7.2); ctx.lineTo(300, halfH + 16.2);
+          ctx.stroke();
 
-          // Dark Sapphire Periscope Lens Barrel
+          // Dark Sapphire Periscope Lens Barrel + AR Glint
           ctx.fillStyle = '#0d1015';
           ctx.beginPath();
           ctx.roundRect(242, halfH + 15.5, 70, 4.5, [0, 0, 3, 3]);
           ctx.fill();
+          ctx.fillStyle = 'rgba(92, 205, 255, 0.42)';
+          ctx.fillRect(252, halfH + 16.8, 22, 1.3);
         } else if (isHonourV6) {
           // HONOUR V6: Emerald-Obsidian Aerospace Carbon-Fiber Backplate + Octagonal "Eye of Muse" Super-Steel Camera Dome
           const honourBackGrad = ctx.createLinearGradient(0, halfH, 0, halfH + 8);
@@ -1475,6 +1738,15 @@
           ctx.lineTo(354, halfH - 0.5);
           ctx.closePath();
           ctx.fill();
+          // Aerospace diagonal twill carbon-fiber micro-weave along the backplate step
+          ctx.strokeStyle = 'rgba(116, 232, 184, 0.18)';
+          ctx.lineWidth = 0.9;
+          ctx.beginPath();
+          for (let cu = 48; cu < 344; cu += 8) {
+            ctx.moveTo(cu, halfH + 1.0);
+            ctx.lineTo(cu + 4.5, halfH + 5.8);
+          }
+          ctx.stroke();
 
           // Octagonal Super-Steel & Rose-Gold "Eye of Muse" Camera Dome (u = 205..336)
           const domeGrad = ctx.createLinearGradient(205, halfH + 6, 336, halfH + 18);
@@ -1489,12 +1761,22 @@
           ctx.lineTo(336, halfH + 6.0);
           ctx.closePath();
           ctx.fill();
+          ctx.strokeStyle = 'rgba(255, 236, 198, 0.52)';
+          ctx.lineWidth = 0.85;
+          ctx.beginPath();
+          ctx.moveTo(220, halfH + 15.6);
+          ctx.lineTo(322, halfH + 15.6);
+          ctx.stroke();
 
-          // Periscope Telephoto Sapphire Ring
+          // Periscope Telephoto Sapphire Ring + Emerald-Cyan Optical Coating
           ctx.fillStyle = '#0b1014';
           ctx.beginPath();
           ctx.roundRect(236, halfH + 15.0, 68, 4.8, [0, 0, 3, 3]);
           ctx.fill();
+          ctx.fillStyle = 'rgba(72, 232, 190, 0.42)';
+          ctx.fillRect(246, halfH + 16.4, 20, 1.4);
+          ctx.fillStyle = 'rgba(155, 120, 255, 0.34)';
+          ctx.fillRect(276, halfH + 16.6, 16, 1.2);
         } else {
           // IPHONE DUO: Dark protruding sapphire camera lens rings underneath the sculpted white ceramic plateau
           const lenses = [
@@ -1514,9 +1796,11 @@
             ctx.roundRect(ln.u0, halfH + 11, w, ln.depth, [0, 0, 3, 3]);
             ctx.fill();
 
-            // Specular lens rim glint
-            ctx.fillStyle = 'rgba(200, 225, 255, 0.38)';
-            ctx.fillRect(ln.u0 + 5, halfH + 12.5, w * 0.32, 1.6);
+            // Multi-coated Sapphire AR cyan + violet lens glints
+            ctx.fillStyle = 'rgba(110, 205, 255, 0.44)';
+            ctx.fillRect(ln.u0 + 5, halfH + 12.5, w * 0.30, 1.5);
+            ctx.fillStyle = 'rgba(182, 128, 255, 0.30)';
+            ctx.fillRect(ln.u0 + w * 0.55, halfH + 13.0, w * 0.22, 1.2);
           }
 
           // Sculpted White Ceramic Backplate / Camera Plateau (u = 52..352, y = +10..+23.5)
@@ -1640,27 +1924,36 @@
         }
       }
 
-      if (isSamsungFold) {
+      if (isSamsungFold || isPixelFold || isHonourV6) {
         ctx.save();
-        ctx.globalAlpha = 0.20;
+        ctx.globalAlpha = isHonourV6 ? 0.16 : 0.20;
         for (let y = -halfH + 4; y < halfH - 3; y += 2) {
-          ctx.strokeStyle = y % 4 === 0 ? '#e3e9ef' : '#4a535f';
+          ctx.strokeStyle = y % 4 === 0 ? (isHonourV6 ? '#a8f0cf' : '#e3e9ef') : '#4a535f';
           ctx.lineWidth = 0.45;
           ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(L - 12, y); ctx.stroke();
         }
         ctx.restore();
       }
 
-      // Longitudinal Specular Studio Softbox Reflection Streak along the rail
-      const reflectionShift = Math.sin(wingAngle) * (isLeft ? -0.12 : 0.12);
+      // Dynamic Dual-Softbox Specular Reflection Sweep across the metallic rail as bend angle changes
+      const reflectionShift = Math.sin(wingAngle) * (isLeft ? -0.16 : 0.16);
       const streakGrad = ctx.createLinearGradient(10, 0, L - 14, 0);
       streakGrad.addColorStop(0, 'rgba(255, 255, 255, 0.025)');
-      streakGrad.addColorStop(0.30 + reflectionShift, 'rgba(255, 255, 255, 0.22)');
-      streakGrad.addColorStop(0.58 + reflectionShift, 'rgba(255, 255, 255, 0.035)');
-      streakGrad.addColorStop(0.83 + reflectionShift, 'rgba(255, 255, 255, 0.15)');
+      streakGrad.addColorStop(Math.max(0.08, Math.min(0.48, 0.28 + reflectionShift)), 'rgba(255, 255, 255, 0.28)');
+      streakGrad.addColorStop(Math.max(0.25, Math.min(0.72, 0.56 + reflectionShift)), 'rgba(255, 255, 255, 0.03)');
+      streakGrad.addColorStop(Math.max(0.55, Math.min(0.94, 0.82 + reflectionShift)), 'rgba(220, 238, 255, 0.19)');
       streakGrad.addColorStop(1, 'rgba(255, 255, 255, 0.02)');
       ctx.fillStyle = streakGrad;
-      ctx.fillRect(10, -halfH + 3.2, L - 24, 1.4);
+      ctx.fillRect(10, -halfH + 3.0, L - 24, 1.6);
+
+      // Grazing-Angle Ultra-Thin Glass (UTG) Fresnel Rim Glint along the upper display lip
+      const fresnelAlpha = Math.min(0.68, 0.24 + Math.sin(wingAngle || 0) * 0.95);
+      const fresnelGrad = ctx.createLinearGradient(4, 0, L - 18, 0);
+      fresnelGrad.addColorStop(0, `rgba(205, 236, 255, ${fresnelAlpha.toFixed(2)})`);
+      fresnelGrad.addColorStop(0.55, `rgba(255, 255, 255, ${(fresnelAlpha * 0.72).toFixed(2)})`);
+      fresnelGrad.addColorStop(1, 'rgba(205, 236, 255, 0.05)');
+      ctx.fillStyle = fresnelGrad;
+      ctx.fillRect(4, -halfH - 0.6, L - 22, 1.1);
 
       // Bright Chrome Top Edge Highlight (Matches bright metallic line in photo)
       ctx.strokeStyle = 'rgba(236, 241, 244, 0.70)';
@@ -1823,27 +2116,39 @@
       ctx.closePath();
       ctx.fill();
 
-      // 2B. Exposed Internal Copper Vapor Chamber, Gold Ribbon Cable & Battery Pouch (damagePct >= 60%)
+      // 2B. Exposed Internal Woven Graphite, Copper Vapor Chamber, Micro-Gears & Flex Ribbon (damagePct >= 60%)
       if (damagePct >= 60.0 && topSpread > 2.0) {
         ctx.save();
-        // Silver lithium battery pouch edge deep inside the split spine
-        ctx.fillStyle = 'rgba(184, 196, 208, 0.75)';
-        ctx.fillRect(-topSpread * 0.55, -2, topSpread * 1.1, 4.5);
-        // Copper thermal vapor chamber strip
-        ctx.fillStyle = '#c86d3b';
-        ctx.fillRect(-topSpread * 0.72, -halfH + 4, topSpread * 1.44, 2.2);
-        // Gold Lego-style flex ribbon cable stretching across the hinge gap (snaps at 100%)
-        ctx.strokeStyle = '#f2c94c';
-        ctx.lineWidth = 1.4;
+        // Dark woven graphite thermal heat-spreader backing
+        ctx.fillStyle = '#1d222a';
+        ctx.fillRect(-topSpread * 0.88, -halfH + 1.5, topSpread * 1.76, halfH * 1.4);
+        // Silver lithium-silicon pouch cell foil edge deep inside the split spine
+        ctx.fillStyle = 'rgba(196, 208, 222, 0.82)';
+        ctx.fillRect(-topSpread * 0.58, -1.8, topSpread * 1.16, 4.4);
+        // Copper thermal vapor chamber capillary strip
+        ctx.fillStyle = '#d47640';
+        ctx.fillRect(-topSpread * 0.74, -halfH + 3.8, topSpread * 1.48, 2.3);
+        // Sheared hinge cam micro-gear teeth visible at 75%+ damage
+        if (damagePct >= 75.0) {
+          ctx.fillStyle = '#9aa6b5';
+          for (let gt = -1; gt <= 1; gt += 2) {
+            ctx.beginPath();
+            ctx.arc(gt * Math.max(2.4, topSpread * 0.42), 2.5, 2.1, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        // Gold Lego-style FPC flex ribbon cable stretching across the hinge gap (snaps at 98%+)
+        ctx.strokeStyle = '#f5cd56';
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
         if (damagePct < 98.0) {
-          ctx.moveTo(-topSpread * 0.85, -1);
-          ctx.lineTo(topSpread * 0.85, -1);
+          ctx.moveTo(-topSpread * 0.85, -0.8);
+          ctx.lineTo(topSpread * 0.85, -0.8);
         } else {
-          ctx.moveTo(-topSpread * 0.85, -1);
-          ctx.lineTo(-1.8, -2.5);
-          ctx.moveTo(1.8, 0.5);
-          ctx.lineTo(topSpread * 0.85, -1);
+          ctx.moveTo(-topSpread * 0.85, -0.8);
+          ctx.lineTo(-1.8, -2.6);
+          ctx.moveTo(1.8, 0.6);
+          ctx.lineTo(topSpread * 0.85, -0.8);
         }
         ctx.stroke();
         ctx.restore();
@@ -1893,16 +2198,27 @@
         ctx.restore();
       }
 
-      // An edge-on view reveals only a short sliver of the inner display.
-      // Its glow grows gradually with damage and stays attached to the crease.
+      // 2D. OLED Subpixel Rupture & Iridescent Purple/Cyan Oxidation Bleed (damagePct >= 50%)
       if (damagePct >= 50.0) {
         const damageProgress = Math.min(1, (damagePct - 50) / 50);
-        const lineLength = 20 + damageProgress * 18;
+        const lineLength = 22 + damageProgress * 26;
         ctx.save();
+        // Iridescent organic electroluminescent oxidation aura (magenta-violet -> cyan -> neon green)
+        const oxRadius = 12 + damageProgress * 22;
+        const oxGrad = ctx.createRadialGradient(0, -halfH - 2, 1.5, 0, -halfH - 2, oxRadius);
+        oxGrad.addColorStop(0, `rgba(0, 255, 136, ${(0.36 + damageProgress * 0.30).toFixed(2)})`);
+        oxGrad.addColorStop(0.45, `rgba(182, 44, 255, ${(0.24 + damageProgress * 0.24).toFixed(2)})`);
+        oxGrad.addColorStop(0.78, `rgba(56, 212, 255, ${(0.14 + damageProgress * 0.16).toFixed(2)})`);
+        oxGrad.addColorStop(1, 'rgba(56, 212, 255, 0)');
+        ctx.fillStyle = oxGrad;
+        ctx.beginPath();
+        ctx.ellipse(0, -halfH - 1.5, oxRadius * 1.45, oxRadius * 0.55, 0, 0, Math.PI * 2);
+        ctx.fill();
+
         ctx.shadowColor = PALETTE.oledGreen;
-        ctx.shadowBlur = 2 + damageProgress * 2;
-        ctx.strokeStyle = `rgba(69, 233, 113, ${0.35 + damageProgress * 0.25})`;
-        ctx.lineWidth = 0.8;
+        ctx.shadowBlur = 3 + damageProgress * 4;
+        ctx.strokeStyle = `rgba(69, 233, 113, ${0.42 + damageProgress * 0.32})`;
+        ctx.lineWidth = 1.05;
         ctx.beginPath();
         ctx.moveTo(-lineLength * Math.cos(wingAngle), -halfH + Math.sin(wingAngle) * lineLength - 1);
         ctx.lineTo(-topSpread, -halfH - 1);
@@ -1912,23 +2228,88 @@
         ctx.restore();
       }
 
-      // A shallow lifted glass lip and fine fissures appear only after fracture.
+      // 2E. Multi-Layer Ultra-Thin Glass (UTG) Delamination Blister & Voronoi Crystalline Craze (damagePct >= 75%)
       if (damagePct >= 75.0) {
         const fracture = Math.min(1, (damagePct - 75) / 25);
-        const buckleH = 2.2 + fracture * 3.0;
+        const buckleH = 2.5 + fracture * 3.8;
         ctx.save();
-        ctx.strokeStyle = 'rgba(226, 235, 240, 0.65)';
-        ctx.lineWidth = 0.9;
+        // Translucent milky UTG polymer delamination pocket under lifted crease
+        ctx.fillStyle = `rgba(218, 238, 255, ${(0.16 + fracture * 0.18).toFixed(2)})`;
         ctx.beginPath();
-        ctx.moveTo(-42 * Math.cos(wingAngle), -halfH + Math.sin(wingAngle) * 42 - 1);
-        ctx.quadraticCurveTo(0, -halfH - buckleH, 42 * Math.cos(wingAngle), -halfH + Math.sin(wingAngle) * 42 - 1);
-        ctx.stroke();
-        ctx.strokeStyle = 'rgba(230, 238, 240, 0.55)';
-        ctx.lineWidth = 0.65;
+        ctx.moveTo(-44 * Math.cos(wingAngle), -halfH + Math.sin(wingAngle) * 44 - 0.8);
+        ctx.quadraticCurveTo(0, -halfH - buckleH - 1.2, 44 * Math.cos(wingAngle), -halfH + Math.sin(wingAngle) * 44 - 0.8);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(235, 245, 255, 0.78)';
+        ctx.lineWidth = 1.0;
         ctx.beginPath();
-        ctx.moveTo(-11, -halfH - 0.5); ctx.lineTo(-17, -halfH - 4); ctx.lineTo(-23, -halfH - 3);
-        ctx.moveTo(9, -halfH - 0.5); ctx.lineTo(14, -halfH - 5); ctx.lineTo(21, -halfH - 3);
+        ctx.moveTo(-44 * Math.cos(wingAngle), -halfH + Math.sin(wingAngle) * 44 - 1);
+        ctx.quadraticCurveTo(0, -halfH - buckleH, 44 * Math.cos(wingAngle), -halfH + Math.sin(wingAngle) * 44 - 1);
         ctx.stroke();
+
+        // Voronoi-style micro-crystalline UTG shatter web around center spine
+        ctx.strokeStyle = `rgba(240, 248, 255, ${(0.52 + fracture * 0.28).toFixed(2)})`;
+        ctx.lineWidth = 0.7;
+        ctx.beginPath();
+        ctx.moveTo(-9, -halfH - 0.5); ctx.lineTo(-16, -halfH - 4.4); ctx.lineTo(-25, -halfH - 2.8);
+        ctx.moveTo(-16, -halfH - 4.4); ctx.lineTo(-12, -halfH - 6.6);
+        ctx.moveTo(8, -halfH - 0.5); ctx.lineTo(15, -halfH - 5.2); ctx.lineTo(24, -halfH - 3.2);
+        ctx.moveTo(15, -halfH - 5.2); ctx.lineTo(11, -halfH - 7.0);
+        ctx.moveTo(-4, -halfH - 1.2); ctx.lineTo(0, -halfH - buckleH - 1.8); ctx.lineTo(5, -halfH - 1.4);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 2F. Catastrophic Snap X-Ray / Internal Spine Cutaway Diagnostic Flash (_xrayCutawayTimer > 0)
+      if ((this._xrayCutawayTimer || 0) > 0) {
+        const xAlpha = Math.min(1.0, (this._xrayCutawayTimer / 0.85)) * 0.78;
+        ctx.save();
+        ctx.globalAlpha = xAlpha;
+
+        // Subtle dark X-Ray diagnostic lens window over the center spine & inner wings
+        const xGrad = ctx.createRadialGradient(0, 0, 8, 0, 0, 128);
+        xGrad.addColorStop(0, 'rgba(6, 20, 34, 0.86)');
+        xGrad.addColorStop(0.7, 'rgba(8, 26, 42, 0.52)');
+        xGrad.addColorStop(1, 'rgba(8, 26, 42, 0)');
+        ctx.fillStyle = xGrad;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 128, 34, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Left Wing X-Ray Internal Cell + Copper Vapor Pipe Wireframe
+        ctx.save();
+        ctx.translate(-hingeGap, halfH);
+        ctx.rotate(-wingAngle);
+        ctx.translate(0, -halfH);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.1;
+        ctx.strokeRect(-108, -halfH + 3.5, 86, EDGE_RAIL_THICK - 7);
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.18)';
+        ctx.fillRect(-108, -halfH + 3.5, 86, EDGE_RAIL_THICK - 7);
+        // Snapped hinge cam teeth on left side
+        ctx.strokeStyle = '#ff4d6d';
+        ctx.beginPath();
+        ctx.moveTo(-18, -4); ctx.lineTo(-4, -1); ctx.lineTo(-10, 4);
+        ctx.stroke();
+        ctx.restore();
+
+        // Right Wing X-Ray Internal Logic Board + Taptic Coil Wireframe
+        ctx.save();
+        ctx.translate(hingeGap, halfH);
+        ctx.rotate(wingAngle);
+        ctx.translate(0, -halfH);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.1;
+        ctx.strokeRect(22, -halfH + 3.5, 86, EDGE_RAIL_THICK - 7);
+        ctx.fillStyle = 'rgba(0, 255, 136, 0.16)';
+        ctx.fillRect(22, -halfH + 3.5, 52, EDGE_RAIL_THICK - 7);
+        ctx.strokeStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.moveTo(4, -3); ctx.lineTo(18, 2); ctx.lineTo(9, 5);
+        ctx.stroke();
+        ctx.restore();
+
         ctx.restore();
       }
 
@@ -2152,25 +2533,43 @@
         ctx.quadraticCurveTo(-88, yOuter + 34, -66, yOuter + 52);
         ctx.stroke();
 
-        // 6. Black Wristwatch Bezel & Strap at Bottom-Left Corner (x: -490..-425, y: 340..430)
+        // 5B. Dynamic Dorsal Extensor Tendon Relief under High Torque
+        if (effLeftStrain > 0.22) {
+          const tAlpha = Math.min(0.26, (effLeftStrain - 0.22) * 0.34);
+          ctx.strokeStyle = `rgba(255, 226, 204, ${tAlpha.toFixed(2)})`;
+          ctx.lineWidth = 2.6;
+          ctx.beginPath();
+          ctx.moveTo(-210 + ipFlex * 0.3, 140);
+          ctx.quadraticCurveTo(-265, 235, -315, 345);
+          ctx.stroke();
+        }
+
+        ctx.restore(); // hand silhouette clip
+
+        // 6. Matte-Black Sports Wristwatch Case & Silicone Band on Outer-Left Wrist
         ctx.save();
-        ctx.fillStyle = '#181a1f';
-        ctx.strokeStyle = '#4a505c';
-        ctx.lineWidth = 2.5;
+        ctx.shadowColor = 'rgba(10, 12, 16, 0.35)';
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = '#171a20';
+        ctx.strokeStyle = '#3b414d';
+        ctx.lineWidth = 1.6;
         ctx.beginPath();
-        ctx.moveTo(-485 + palmInward * 0.5, 342);
-        ctx.quadraticCurveTo(-452 + palmInward * 0.4, 355, -432 + palmInward * 0.3, 430);
-        ctx.lineTo(-495 + palmInward * 0.5, 430);
-        ctx.closePath();
+        ctx.roundRect(-486 + palmInward * 0.52, 368, 34, 56, 8);
         ctx.fill();
         ctx.stroke();
-
-        ctx.fillStyle = '#8c94a4';
+        ctx.shadowColor = 'transparent';
+        // Angled Sapphire Watch Crystal Glint & Titanium Crown
+        ctx.strokeStyle = 'rgba(165, 214, 255, 0.35)';
+        ctx.lineWidth = 1.4;
         ctx.beginPath();
-        ctx.arc(-458 + palmInward * 0.4, 378, 4.5, 0, Math.PI * 2);
+        ctx.moveTo(-478 + palmInward * 0.52, 376);
+        ctx.lineTo(-460 + palmInward * 0.52, 414);
+        ctx.stroke();
+        ctx.fillStyle = '#9aa3b2';
+        ctx.beginPath();
+        ctx.roundRect(-453 + palmInward * 0.52, 389, 5, 11, 2);
         ctx.fill();
         ctx.restore();
-        ctx.restore(); // hand silhouette clip
 
       } else {
         // ===================================================================
@@ -2279,6 +2678,17 @@
         ctx.moveTo(146 - ipFlex * 0.2, yOuter + 60);
         ctx.quadraticCurveTo(114, yOuter + 80, 88, yOuter + 100);
         ctx.stroke();
+
+        // Dynamic Dorsal Extensor Tendon Relief under High Torque on Right Hand
+        if (effRightStrain > 0.22) {
+          const tAlpha = Math.min(0.26, (effRightStrain - 0.22) * 0.34);
+          ctx.strokeStyle = `rgba(255, 226, 204, ${tAlpha.toFixed(2)})`;
+          ctx.lineWidth = 2.6;
+          ctx.beginPath();
+          ctx.moveTo(212 - ipFlex * 0.3, 142);
+          ctx.quadraticCurveTo(268, 238, 318, 348);
+          ctx.stroke();
+        }
         ctx.restore(); // hand silhouette clip
       }
 
@@ -2305,8 +2715,8 @@
       // Narrow contact shadow follows the rail and moving thumb pad.
       ctx.save();
       ctx.lineCap = 'round';
-      ctx.strokeStyle = `rgba(45,26,18,${0.25 + 0.10 * squeeze})`;
-      ctx.lineWidth = 5;
+      ctx.strokeStyle = `rgba(45,26,18,${0.28 + 0.12 * squeeze})`;
+      ctx.lineWidth = 5.4;
       ctx.beginPath();
       ctx.moveTo(side * 84, yOuter + 2);
       ctx.quadraticCurveTo(side * 48, yMid + 1, side * 11, yInner + 2);
@@ -2332,6 +2742,13 @@
       light.addColorStop(1, 'rgba(104,48,31,0.18)');
       ctx.fillStyle = light;
       ctx.fillRect(sign < 0 ? -550 : 0, -80, 550, 540);
+      // Warm Epidermal Subsurface Scattering (SSS) glow along compressed blood-rich tissue edges
+      const sss = ctx.createRadialGradient(sign * 92, 68, 8, sign * 118, 96, 132);
+      sss.addColorStop(0, `rgba(228, 76, 46, ${(0.12 + squeeze * 0.11).toFixed(2)})`);
+      sss.addColorStop(0.6, 'rgba(214, 92, 58, 0.06)');
+      sss.addColorStop(1, 'rgba(180, 70, 42, 0)');
+      ctx.fillStyle = sss;
+      ctx.fillRect(sign < 0 ? -255 : 0, -35, 255, 260);
       const pressure = ctx.createRadialGradient(sign * 50, 45, 3, sign * 65, 62, 90);
       pressure.addColorStop(0, `rgba(255,236,211,${0.16 + squeeze * 0.16})`);
       pressure.addColorStop(1, 'rgba(181,92,59,0)');
@@ -2456,7 +2873,8 @@
       ctx.fillText(`${angle}° BEND`, 0, 24);
       ctx.font = 'bold 10px "SF Mono", monospace';
       ctx.fillStyle = '#f1c979';
-      const deviceBadge = this._currentTierId === 'trifold' ? 'LVL 5 BOSS • HUAWEI MATE XT TRI-FOLD'
+      const deviceBadge = this._currentTierId === 'honour' ? 'LVL 6 ULTIMATE • HONOUR V6 (2100MPa LUBAN)'
+        : this._currentTierId === 'trifold' ? 'LVL 5 BOSS • HUAWEI MATE XT TRI-FOLD'
         : this._currentTierId === 'pixel' ? 'LVL 4 EXPERT • GOOGLE PIXEL 10 PRO FOLD'
         : this._currentTierId === 'titanium' ? 'LVL 3 HARD • SAMSUNG GALAXY Z FOLD 8'
         : this._currentTierId === 'dust' ? 'LVL 2 MEDIUM • DUST-JAMMED IPHONE DUO'
@@ -2554,12 +2972,14 @@
       const spawnY = this._currentHingeY || EDGE_BASE_Y;
       this._konamiExplosionTimer = 3.0;
       this._snapShockwaveTimer = 0.55;
+      this._xrayCutawayTimer = 0.85;
       this.triggerTrauma(1.0);
       this.addFloatingText('⚡ KONAMI CODE: 999,999 PTS SUPER DESTRUCTION! ⚡', 0, spawnY - 145, '#ffd60a');
       this.addFloatingText('💥 9,999 N·m GOD-THUMB TORQUE • S+ GRADE 💥', 0, spawnY - 110, '#00ff66');
       if (this.options.enableParticles) {
         this.particlePool.spawn('shard', 0, spawnY - 16, 28);
         this.particlePool.spawn('spark', 0, spawnY - 16, 28);
+        this.particlePool.spawn('smoke', 0, spawnY - 14, 18);
         this.particlePool.spawn('dust', 0, spawnY, 32);
       }
       this._konamiGears = [];
@@ -2615,13 +3035,29 @@
             this.particlePool.spawn('spark', 0, spawnY - 12, 2);
           } else if (curStage === 5) {
             this.addFloatingText('DISPLAY FAILURE — FRAME INTACT', 0, spawnY - 85, '#ff0033');
-            this.particlePool.spawn('shard', 0, spawnY - 14, 16);
-            this.particlePool.spawn('spark', 0, spawnY - 14, 8);
+            this.particlePool.spawn('shard', 0, spawnY - 14, 18);
+            this.particlePool.spawn('spark', 0, spawnY - 14, 12);
+            this.particlePool.spawn('smoke', 0, spawnY - 12, 14);
             this.particlePool.spawn('dust', 0, spawnY, 26);
             this._snapShockwaveTimer = 0.55;
+            this._xrayCutawayTimer = 0.85;
           }
           this._lastDamageStage = curStage;
         }
+
+        // Continuous Volumetric Lithium Thermal Vapor wisps at critical hinge rupture (>= 82% damage)
+        if (this.options.enableParticles && (snapshot.damagePct || 0) >= 82.0 && snapshot.state === 'ACTIVE_MASHING') {
+          this._smokeEmitAccum = (this._smokeEmitAccum || 0) + dt;
+          if (this._smokeEmitAccum >= 0.11) {
+            this._smokeEmitAccum = 0;
+            const sy = this._currentHingeY || EDGE_BASE_Y;
+            this.particlePool.spawn('smoke', 0, sy - 10, 1, { spreadX: 12, spreadY: 6 });
+            if ((snapshot.damagePct || 0) >= 92.0 && Math.random() < 0.35) {
+              this.particlePool.spawn('spark', 0, sy - 10, 1, { spreadX: 10, spreadY: 4 });
+            }
+          }
+        }
+
         if (snapshot.labToolsUsed) {
           this._currentLabTools = Object.assign({}, this._currentLabTools || {}, snapshot.labToolsUsed);
         }
@@ -2637,6 +3073,9 @@
       }
       if ((this._snapShockwaveTimer || 0) > 0) {
         this._snapShockwaveTimer = Math.max(0, this._snapShockwaveTimer - dt);
+      }
+      if ((this._xrayCutawayTimer || 0) > 0) {
+        this._xrayCutawayTimer = Math.max(0, this._xrayCutawayTimer - dt);
       }
 
       // Update particle physics
@@ -2669,9 +3108,11 @@
       // --- PASS 1: WHITE WORKBENCH SURFACE ---
       this._renderCuttingMat(ctx, viewLeft, viewTop, viewRight, viewBottom);
 
-      // --- PASS 2: SAND MOUND & PERIPHERAL DESK PROPS ---
+      // --- PASS 2: SAND MOUND & PERIPHERAL DESK PROPS (WITH SUBTLE 3D CAMERA PARALLAX) ---
       if (this.options.showProps && this.propsBuffer) {
-        ctx.drawImage(this.propsBuffer, -800, -450);
+        const pxOffset = -(this.shakeX || 0) * 0.22 - (this._gripTrembleX || 0) * 0.35;
+        const pyOffset = -(this.shakeY || 0) * 0.22 - (this._gripTrembleY || 0) * 0.35;
+        ctx.drawImage(this.propsBuffer, -800 + pxOffset, -450 + pyOffset);
       }
 
       // Extract Snapshot Parameters
@@ -2782,6 +3223,17 @@
       // it remains legible even when the whole scene is scaled down on mobile.
       this._updateAndDrawFloatingLabels(ctx, dt);
       ctx.restore();
+
+      // Subtle Studio Lens Vignette / High-Torque Focus Pull during heavy strain or overdrive
+      if (strain > 0.55 || (snapshot && snapshot.overdriveActive)) {
+        const vAlpha = Math.min(0.28, (Math.max(0, strain - 0.55) * 0.45) + (snapshot && snapshot.overdriveActive ? 0.08 : 0));
+        const vig = ctx.createRadialGradient(this.width / 2, this.height / 2, Math.min(this.width, this.height) * 0.34, this.width / 2, this.height / 2, Math.max(this.width, this.height) * 0.72);
+        vig.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        vig.addColorStop(1, `rgba(8, 12, 18, ${vAlpha.toFixed(2)})`);
+        ctx.fillStyle = vig;
+        ctx.fillRect(0, 0, this.width, this.height);
+      }
+
       this._renderHudOverlay(ctx, snapshot);
     }
 
@@ -2821,7 +3273,7 @@
         '_currentWingAngle', '_currentHingeY', '_currentHingeGap', '_currentBendDeg',
         '_currentOrientation', '_leftGripStrain', '_rightGripStrain', 'leftSqueeze',
         'rightSqueeze', 'tapPump', '_leftPadPressure', '_rightPadPressure',
-        '_gripTrembleX', '_gripTrembleY'];
+        '_gripTrembleX', '_gripTrembleY', '_xrayCutawayTimer'];
       for (const key of sceneKeys) saved[key] = this[key];
       try {
         this._currentDamagePct = damagePct;
@@ -2831,12 +3283,15 @@
         this.leftSqueeze = this.rightSqueeze = 0.15;
         this._leftPadPressure = this._rightPadPressure = 0.2;
         this.tapPump = this._gripTrembleX = this._gripTrembleY = 0;
+        this._xrayCutawayTimer = 0;
         this._renderPhoneFace('front', damagePct, 80.0);
         this._renderPerspectivePhone(ctx, bendAngle, 'REVERSE_BEND');
         this._renderHands(ctx, 0.6, null, 0);
         if (!survived && damagePct >= 75) {
-          const cardParticles = new ParticlePool(32);
-          cardParticles.spawn('shard', 0, this._currentHingeY || -80, 8);
+          const cardParticles = new ParticlePool(48);
+          cardParticles.spawn('smoke', 0, (this._currentHingeY || -80) - 10, 6);
+          cardParticles.spawn('shard', 0, this._currentHingeY || -80, 10);
+          cardParticles.spawn('spark', 0, (this._currentHingeY || -80) - 6, 6);
           cardParticles.draw(ctx);
         }
       } finally {
@@ -2854,19 +3309,22 @@
       ctx.fillStyle = '#f5a623';
       ctx.fillRect(0, 0, W, 5);
       ctx.fillStyle = '#ffffff';
-      ctx.font = '900 20px -apple-system, "SF Pro Display", sans-serif';
+      ctx.font = '900 18px -apple-system, "SF Pro Display", sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(`JERRYRIGEVERYTHING // ${handsetName} • TESTER: ${testerName}`, 40, 52);
+      ctx.fillText(`JERRYRIGEVERYTHING // ${handsetName}`, 40, 38);
+      ctx.fillStyle = '#fbbf24';
+      ctx.font = 'bold 13px "SF Mono", monospace';
+      ctx.fillText(`TESTER: ${testerName} • DURABILITY LAB REPORT`, 40, 62);
 
       // Right Verdict Badge
-      ctx.font = '900 20px -apple-system, "SF Pro Display", sans-serif';
+      ctx.font = '900 18px -apple-system, "SF Pro Display", sans-serif';
       ctx.textAlign = 'right';
       if (!survived) {
         ctx.fillStyle = '#ff3b30';
-        ctx.fillText('DISPLAY FAILED — FRAME INTACT', W - 40, 52);
+        ctx.fillText('DISPLAY FAILED — FRAME INTACT', W - 40, 49);
       } else {
         ctx.fillStyle = '#34c759';
-        ctx.fillText('SURVIVED THE BEND TEST', W - 40, 52);
+        ctx.fillText('SURVIVED THE BEND TEST', W - 40, 49);
       }
 
       // Bottom Stats Glass Card
@@ -2881,7 +3339,7 @@
       const snapTime = snapshot && snapshot.snapTime ? `${Number(snapshot.snapTime).toFixed(2)}s` : '25.00s';
       const peakCps = snapshot && snapshot.peakCps ? `${Number(snapshot.peakCps).toFixed(1)} CPS` : '12.0 CPS';
       const maxAngle = snapshot && snapshot.bendAngleDeg ? `${Number(snapshot.bendAngleDeg).toFixed(1)}°` : `${bendAngle.toFixed(1)}°`;
-      const tierMult = tierObj.id === 'trifold' ? 1.48 : (tierObj.id === 'titanium' ? 1.22 : (tierObj.id === 'pixel' ? 1.16 : (tierObj.id === 'dust' ? 1.08 : 1.0)));
+      const tierMult = tierObj.id === 'honour' ? 1.62 : (tierObj.id === 'trifold' ? 1.48 : (tierObj.id === 'titanium' ? 1.22 : (tierObj.id === 'pixel' ? 1.16 : (tierObj.id === 'dust' ? 1.08 : 1.0))));
       const tapVar = ((snapshot && snapshot.totalTaps) || 0) * 3 + Math.round(((snapshot && snapshot.peakCps) || 0) * 6);
       const computedBill = (snapshot && snapshot.billBreakdown && snapshot.billBreakdown.totalBill !== undefined)
         ? snapshot.billBreakdown.totalBill

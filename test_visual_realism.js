@@ -18,4 +18,22 @@ const card=r.renderOffscreenCard({tier:{id:'titanium'},damagePct:75,bendAngleDeg
 assert.deepStrictEqual(keys.map(k=>r[k]),before,'card export must not change live grip or bend');
 assert.strictEqual(JSON.stringify(r.particlePool.particles),particles,'card export must not alter live particles');
 assert.strictEqual(card.width,1200); assert.strictEqual(card.height,630);
-console.log('Grip synchronization and isolated 1200x630 card export verified.');
+// Verify volumetric smoke upward buoyancy + spark workbench bounce restitution
+r.particlePool.clear();
+r.particlePool.spawn('smoke', 0, -40, 1);
+const smokeP = r.particlePool.particles.find(p => p.active && p.type === 'smoke');
+assert(smokeP, 'smoke particle must spawn cleanly');
+const y0 = smokeP.y;
+r.particlePool.update(0.1);
+assert(smokeP.y < y0 && smokeP.size > 7, 'volumetric thermal smoke must rise and expand');
+
+r.particlePool.clear();
+r.particlePool.spawn('spark', 0, 70, 1);
+const sparkP = r.particlePool.particles.find(p => p.active && p.type === 'spark');
+sparkP.vy = 180;
+r.particlePool.update(0.05);
+assert(sparkP.bounced && sparkP.vy < 0, 'incandescent sparks must bounce off the workbench plane');
+
+const honourCard = r.renderOffscreenCard({tier:{id:'honour',deviceModel:'Honour V6'},damagePct:95,bendAngleDeg:34,survived:false,playerName:'@Chris'});
+assert.strictEqual(honourCard.width,1200);
+console.log('Grip synchronization, volumetric smoke, bouncing sparks, and isolated 1200x630 card export verified.');

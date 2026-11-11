@@ -483,6 +483,17 @@ html, body {
   box-shadow: 0 0 6px var(--mat-highlight);
 }
 
+.tier-btn.honour.active {
+  background: linear-gradient(135deg, rgba(229, 193, 133, 0.28), rgba(19, 58, 44, 0.78));
+  border-color: #e5c185;
+  box-shadow: 0 0 14px rgba(229, 193, 133, 0.32);
+}
+
+.tier-btn.honour.active .tier-dot {
+  background: #e5c185;
+  box-shadow: 0 0 8px #e5c185;
+}
+
 /* Local progression is legible even when the tier control is disabled. */
 .tier-btn:disabled { opacity: 0.58; cursor: not-allowed; border-color: rgba(255,255,255,0.12); color: #abb5b7; background: rgba(0,0,0,0.36); box-shadow: none; }
 .tier-btn .tier-lock { color: #d4b98b; font-size: 10px; }
